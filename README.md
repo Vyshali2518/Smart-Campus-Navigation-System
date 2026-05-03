@@ -2,7 +2,6 @@
 
 A modular, mobile-first campus navigation platform built with Flask, Leaflet and OpenStreetMap, designed for **JIIT Sector 128, Noida**.
 
-> Submitted for the Software Engineering Lab — `15B11CI513` — B.Tech CSE.
 
 ---
 
