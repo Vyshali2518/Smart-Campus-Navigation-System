@@ -1,0 +1,12 @@
+source,destination,distance_m,ramp_available,elevator_available,notes
+Main Gate (Gate 1),LRC,180,yes,yes,Smooth concrete path with kerb cuts. Elevator near LRC entrance.
+Main Gate (Gate 1),MPH,160,yes,yes,Take the right ramp at the entry plaza. Avoid the central stairs.
+LRC,Cafeteria,260,yes,no,Use the side ramp behind LRC. Slight slope (less than 5 degrees).
+LRC,Computer Lab 1,90,yes,yes,Internal corridor. Elevator at LRC north wing.
+Computer Lab 1,Computer Lab 2,40,yes,no,Same floor connection through lab corridor.
+Mess,Cafeteria,40,yes,no,Recently re-paved walkway. Kerb cuts at the crossing.
+Football Ground,Main Gate (Gate 1),200,yes,no,Direct level walkway through parking area.
+Parking (Students Cars),Main Gate (Gate 1),100,yes,no,Direct paved walkway from car park.
+Parking (Students Bikes),MPH,70,yes,yes,Step-free path from the bike park to MPH lobby.
+Parking (Teachers),MPH,80,yes,yes,Use the ramped entry on the north side of MPH.
+Gate 2,Cafeteria,120,yes,no,Wheelchair-accessible side path with tactile paving.

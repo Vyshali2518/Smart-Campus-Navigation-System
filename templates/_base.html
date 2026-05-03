@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Smart Campus Navigation System{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <div id="particles-js" class="particles"></div>
+
+    <header class="header">
+        <div class="nav-container">
+            <h1><i class="fas fa-map-marked-alt"></i> Smart Campus Navigation System</h1>
+            <nav class="top-nav">
+                <a href="/home"          class="back-btn {% if active=='home' %}active{% endif %}"><i class="fas fa-route"></i> Navigate</a>
+                <a href="/map"           class="back-btn {% if active=='map' %}active{% endif %}"><i class="fas fa-map"></i> Map</a>
+                <a href="/accessibility" class="back-btn {% if active=='access' %}active{% endif %}"><i class="fas fa-wheelchair"></i> Accessibility</a>
+                <a href="/events"        class="back-btn {% if active=='events' %}active{% endif %}"><i class="fas fa-bell"></i> Events</a>
+                <a href="/indoor"        class="back-btn {% if active=='indoor' %}active{% endif %}"><i class="fas fa-wifi"></i> Indoor</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        &copy; 2026 Smart Campus Navigation System &middot; JIIT Sector 128, Noida &middot; B.Tech CSE Software Engineering Lab
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script>
+        if (window.particlesJS) {
+            particlesJS("particles-js", {
+                particles: {
+                    number: { value: 60, density: { enable: true, value_area: 900 } },
+                    color: { value: "#3b82f6" },
+                    shape: { type: "circle" },
+                    opacity: { value: 0.45, random: true },
+                    size: { value: 3, random: true },
+                    line_linked: { enable: true, distance: 150, color: "#93c5fd", opacity: 0.35, width: 1 },
+                    move: { enable: true, speed: 1.6 }
+                },
+                interactivity: {
+                    events: { onhover: { enable: true, mode: "grab" } },
+                    modes: { grab: { distance: 140, line_linked: { opacity: 1 } } }
+                },
+                retina_detect: true
+            });
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

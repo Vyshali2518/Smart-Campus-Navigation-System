@@ -1,0 +1,16 @@
+name,category,latitude,longitude,description,wheelchair_accessible
+Main Gate (Gate 1),gate,28.51969,77.36489,Primary entry to JIIT Sector 128 campus,yes
+Gate 2,gate,28.51861,77.36481,Secondary entry near hostel side,yes
+LRC,academic,28.519180005022704,77.36514748931666,Learning Resource Centre - Library,yes
+MPH,academic,28.51988894861315,77.36518268772066,Multi-Purpose Hall used for events,yes
+Computer Lab 1,academic,28.519755816363944,77.36572186715986,CSE Lab 1,yes
+Computer Lab 2,academic,28.51952500691441,77.36566727937242,CSE Lab 2,yes
+Innovation Hub,academic,28.518797232431844,77.3651201478959,Innovation Hub - student maker / project space,yes
+OAT,facility,28.51862546916445,77.36516029170927,Open Air Theatre - cultural and event venue,partial
+Mess,food,28.519111,77.365694,Main mess and dining hall,yes
+Cafeteria,food,28.518944,77.365667,Central campus cafe,partial
+Football Ground,sports,28.51795168709164,77.36497385565573,Football and cricket ground,yes
+Main Ground,sports,28.519767693051058,77.36605968662472,Main playground and athletics area,yes
+Parking (Students Cars),facility,28.51899880598893,77.3647265310806,Student car parking lot,yes
+Parking (Students Bikes),facility,28.519827440000466,77.36481057883401,Student bike / two-wheeler parking,yes
+Parking (Teachers),facility,28.519377429409065,77.36491533581669,Faculty parking lot,yes

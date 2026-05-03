@@ -1,0 +1,262 @@
+{% extends "_base.html" %}
+{% set active = "events" %}
+{% block title %}Events &amp; Emergency Notifications | SCNS{% endblock %}
+
+{% block head_extra %}
+<style>
+    .toolbar {
+        display: flex; gap: .6rem; flex-wrap: wrap;
+        margin-bottom: 1.4rem;
+    }
+    .toolbar button, .toolbar a {
+        background: var(--primary-color); color: #fff;
+        border: none; padding: .55rem 1rem; border-radius: 999px;
+        font-size: .85rem; cursor: pointer; font-weight: 600;
+        display: inline-flex; align-items: center; gap: .4rem;
+        transition: .2s ease;
+    }
+    .toolbar button.ghost {
+        background: rgba(59,130,246,.15); color: var(--accent-color);
+        border: 1px solid rgba(59,130,246,.3);
+    }
+    .toolbar button.danger { background: linear-gradient(45deg, #b91c1c, #ef4444); }
+    .toolbar button:hover { transform: translateY(-2px); }
+
+    .add-form { display: none; }
+    .add-form.open { display: block; }
+    .add-form .row { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem; }
+    @media (max-width: 700px) { .add-form .row { grid-template-columns: 1fr; } }
+    .add-form label { font-size: .72rem; }
+    .add-form .form-control, .add-form select, .add-form textarea {
+        width: 100%; padding: .6rem .8rem; font-size: .9rem;
+        border-radius: 8px; border: 2px solid var(--border-color);
+        background: #1a2233; color: var(--text-color);
+    }
+    .add-form textarea { min-height: 60px; resize: vertical; }
+
+    .event-card { position: relative; }
+    .event-card .delete-form {
+        position: absolute; top: .55rem; right: .65rem;
+    }
+    .event-card .delete-form button {
+        background: rgba(239,68,68,.12);
+        color: #fca5a5;
+        border: 1px solid rgba(239,68,68,.3);
+        width: 28px; height: 28px; border-radius: 50%;
+        font-size: .85rem; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: .15s;
+    }
+    .event-card .delete-form button:hover {
+        background: #ef4444; color: #fff;
+    }
+
+    .alert .delete-form {
+        position: absolute; top: .55rem; right: .65rem;
+    }
+    .alert { position: relative; padding-right: 3rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="fade">
+    <h2 class="section-title">Events &amp; Emergencies</h2>
+    <p class="section-sub">
+        Live, geo-tagged feed of campus events, academic notices and emergency advisories.
+        <em>(server time {{ now }})</em>
+    </p>
+
+    <div class="toolbar">
+        <button id="btn-add"    type="button"><i class="fas fa-plus"></i> Add event</button>
+        <button id="btn-urgent" type="button" class="danger"><i class="fas fa-bolt"></i> Add urgent advisory</button>
+    </div>
+
+    <!-- ADD FORM (hidden by default) -->
+    <form id="add-form" class="card add-form" method="POST" action="/events/add" style="margin-bottom:1.4rem;">
+        <h3 style="margin-bottom:.8rem; color:var(--accent-color);"><i class="fas fa-circle-plus"></i> New event</h3>
+        <div class="row">
+            <div>
+                <label>Title</label>
+                <input class="form-control" type="text" name="title" required maxlength="100" placeholder="e.g. Guest lecture on AI">
+            </div>
+            <div>
+                <label>Location</label>
+                <input class="form-control" type="text" name="location" value="MPH" placeholder="MPH, LRC, OAT, Campus-wide…">
+            </div>
+            <div>
+                <label>Category</label>
+                <select id="f-category" name="category" class="form-control">
+                    <option value="event">event</option>
+                    <option value="academic">academic</option>
+                    <option value="sports">sports</option>
+                    <option value="notice">notice</option>
+                    <option value="emergency">emergency</option>
+                </select>
+            </div>
+            <div>
+                <label>Priority</label>
+                <select id="f-priority" name="priority" class="form-control">
+                    <option value="medium">medium</option>
+                    <option value="low">low</option>
+                    <option value="high">high</option>
+                </select>
+            </div>
+            <div>
+                <label>Start (YYYY-MM-DD HH:MM)</label>
+                <input id="f-start" class="form-control" type="text" name="start_time" placeholder="2026-05-04 16:00" required>
+            </div>
+            <div>
+                <label>End (YYYY-MM-DD HH:MM)</label>
+                <input id="f-end" class="form-control" type="text" name="end_time" placeholder="2026-05-04 18:00" required>
+            </div>
+        </div>
+        <div style="margin-top:.8rem;">
+            <label>Description</label>
+            <textarea name="description" placeholder="One-line description"></textarea>
+        </div>
+        <div style="margin-top:1rem; display:flex; gap:.6rem;">
+            <button type="submit" class="btn"><i class="fas fa-check"></i> Save event</button>
+            <button type="button" id="btn-cancel" class="back-btn"><i class="fas fa-xmark"></i> Cancel</button>
+        </div>
+    </form>
+
+    {% if active_events %}
+    <div class="card" style="border-color: rgba(239,68,68,.4); margin-bottom: 1.2rem;">
+        <h3 style="margin-bottom:.8rem; color:#fca5a5;">
+            <i class="fas fa-bolt"></i> Active Now ({{ active_events|length }})
+        </h3>
+        {% for e in active_events %}
+        <div class="alert {% if e.category != 'emergency' %}warn{% endif %}">
+            <h4>
+                {{ e.title }}
+                <span style="color:var(--text-secondary); font-weight:400; font-size:.85rem;">
+                    &middot; {{ e.location }}
+                </span>
+            </h4>
+            <p>{{ e.description }}</p>
+            <p style="margin-top:.4rem; font-size:.8rem; color:var(--text-secondary);">
+                <i class="far fa-clock"></i> {{ e.start_time }} &mdash; {{ e.end_time }}
+                &nbsp;&middot;&nbsp; <i class="fas fa-tag"></i> {{ e.category }}
+                &nbsp;&middot;&nbsp; priority <span class="tag {{ e.priority }}">{{ e.priority }}</span>
+            </p>
+            <form class="delete-form" method="POST"
+                  action="/events/delete/{{ e.id }}"
+                  onsubmit="return confirm('Delete this event?');">
+                <button type="submit" title="Delete event"><i class="fas fa-xmark"></i></button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="margin-bottom: 1.2rem;">
+        <p style="color: var(--text-secondary); font-size: .92rem; text-align: center;">
+            <i class="fas fa-circle-check" style="color:#6ee7b7;"></i>
+            No active advisories or events right now.
+        </p>
+    </div>
+    {% endif %}
+
+    <h3 style="margin: 1.6rem 0 1rem;">
+        <i class="fas fa-calendar-days"></i> Upcoming ({{ upcoming|length }})
+    </h3>
+    {% if upcoming %}
+    <div class="grid cols-2">
+        {% for e in upcoming %}
+        <div class="card event-card">
+            <form class="delete-form" method="POST"
+                  action="/events/delete/{{ e.id }}"
+                  onsubmit="return confirm('Delete this event?');">
+                <button type="submit" title="Delete event"><i class="fas fa-xmark"></i></button>
+            </form>
+            <div style="display:flex; justify-content:space-between; gap:.5rem; align-items:flex-start; margin-bottom:.4rem; padding-right:2rem;">
+                <h4 style="font-size:1.05rem;">{{ e.title }}</h4>
+                <span class="tag {{ e.priority }}">{{ e.priority }}</span>
+            </div>
+            <p style="color:var(--text-secondary); font-size:.92rem; margin-bottom:.6rem;">{{ e.description }}</p>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap; font-size:.82rem; color:var(--text-secondary);">
+                <span><i class="fas fa-location-dot"></i> {{ e.location }}</span>
+                <span><i class="far fa-clock"></i> {{ e.start_time }}</span>
+                <span><i class="fas fa-tag"></i> {{ e.category }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:var(--text-secondary); font-size:.9rem;">No upcoming events scheduled.</p>
+    {% endif %}
+
+    {% if past %}
+    <h3 style="margin: 2rem 0 1rem; color: var(--text-secondary);">
+        <i class="fas fa-clock-rotate-left"></i> Recently Ended ({{ past|length }})
+    </h3>
+    <div class="grid cols-2">
+        {% for e in past %}
+        <div class="card event-card" style="opacity:.65;">
+            <form class="delete-form" method="POST"
+                  action="/events/delete/{{ e.id }}"
+                  onsubmit="return confirm('Delete this event?');">
+                <button type="submit" title="Delete event"><i class="fas fa-xmark"></i></button>
+            </form>
+            <div style="display:flex; justify-content:space-between; gap:.5rem; align-items:flex-start; margin-bottom:.4rem; padding-right:2rem;">
+                <h4 style="font-size:1rem;">{{ e.title }}</h4>
+                <span class="tag low">ended</span>
+            </div>
+            <p style="color:var(--text-secondary); font-size:.85rem; margin-bottom:.4rem;">{{ e.description }}</p>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap; font-size:.78rem; color:var(--text-secondary);">
+                <span><i class="fas fa-location-dot"></i> {{ e.location }}</span>
+                <span><i class="far fa-clock"></i> ended {{ e.end_time }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+    const form = document.getElementById('add-form');
+    const btnAdd    = document.getElementById('btn-add');
+    const btnUrgent = document.getElementById('btn-urgent');
+    const btnCancel = document.getElementById('btn-cancel');
+    const fCat   = document.getElementById('f-category');
+    const fPri   = document.getElementById('f-priority');
+    const fStart = document.getElementById('f-start');
+    const fEnd   = document.getElementById('f-end');
+
+    function pad(n){ return n < 10 ? '0' + n : '' + n; }
+    function fmt(d){
+        return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate())
+             + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    btnAdd.onclick = function(){
+        form.classList.add('open');
+        const now = new Date();
+        const later = new Date(now.getTime() + 60*60*1000);
+        fStart.value = fmt(now);
+        fEnd.value   = fmt(later);
+        fCat.value = 'event';
+        fPri.value = 'medium';
+        form.scrollIntoView({behavior:'smooth', block:'start'});
+    };
+
+    btnUrgent.onclick = function(){
+        form.classList.add('open');
+        const now = new Date();
+        const later = new Date(now.getTime() + 3*60*60*1000);
+        fStart.value = fmt(now);
+        fEnd.value   = fmt(later);
+        fCat.value = 'emergency';
+        fPri.value = 'high';
+        form.scrollIntoView({behavior:'smooth', block:'start'});
+    };
+
+    btnCancel.onclick = function(){
+        form.classList.remove('open');
+        form.reset();
+    };
+})();
+</script>
+{% endblock %}

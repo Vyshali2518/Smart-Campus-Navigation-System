@@ -1,0 +1,19 @@
+{% extends "_base.html" %}
+{% block title %}Error | SCNS{% endblock %}
+
+{% block content %}
+<section class="fade" style="text-align:center; padding: 3rem 1rem;">
+    <i class="fas fa-circle-exclamation" style="font-size: 4rem; color: var(--warn); margin-bottom: 1rem;"></i>
+    <h2 class="section-title">Something went wrong</h2>
+    <p class="section-sub">{{ message }}</p>
+    {% if source or destination %}
+    <p style="color:var(--text-secondary);">
+        <strong>Source:</strong> {{ source or '—' }} &nbsp; | &nbsp;
+        <strong>Destination:</strong> {{ destination or '—' }}
+    </p>
+    {% endif %}
+    <div style="margin-top: 1.5rem;">
+        <a href="/home" class="btn"><i class="fas fa-arrow-left"></i> Back to Navigation</a>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,11 @@
+building,floor,room,beacon_id,ssid_signal_dbm,nearest_landmark
+LRC,Underground,Reading Hall,BCN-LRC-U01,-50,Quiet zone west
+LRC,Underground,Stack Room,BCN-LRC-U02,-58,Reference / archive shelves
+LRC,1st,Issue Counter,BCN-LRC-101,-48,Main entrance
+LRC,1st,Discussion Rooms,BCN-LRC-103,-62,Group study pods
+MPH,Ground,Stage,BCN-MPH-G01,-50,Center stage
+MPH,Ground,Backstage,BCN-MPH-G02,-54,Behind curtain
+Innovation Hub,Ground,Maker Space,BCN-IH-G01,-52,3D-printer bay
+Innovation Hub,Ground,Project Room,BCN-IH-G02,-60,Robotics tables
+Computer Lab 1,Ground,Lab Floor,BCN-CL1-G01,-55,Front terminals
+Computer Lab 2,Ground,Lab Floor,BCN-CL2-G01,-56,Front terminals

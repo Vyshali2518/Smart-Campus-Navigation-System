@@ -1,0 +1,76 @@
+{% extends "_base.html" %}
+{% set active = "indoor" %}
+{% block title %}Indoor Positioning | SCNS{% endblock %}
+
+{% block content %}
+<section class="fade">
+    <h2 class="section-title">Indoor Positioning</h2>
+    <p class="section-sub">
+        Wi-Fi RSSI &amp; BLE beacon registry. Used by the mobile companion app to estimate room-level
+        position once GPS becomes unreliable indoors.
+    </p>
+
+    <div class="grid cols-2" style="margin-bottom: 1.6rem;">
+        <div class="card">
+            <h3 style="color:var(--accent-color); margin-bottom:.5rem;">
+                <i class="fas fa-circle-nodes"></i> What is a beacon?
+            </h3>
+            <p style="color:var(--text-secondary); font-size:.92rem;">
+                A small, battery-powered Bluetooth Low Energy (BLE) sticker installed on a wall.
+                It broadcasts a unique <strong>Beacon ID</strong> 10 times per second. When your phone
+                walks past, it picks up that ID &mdash; the app then knows which room you're near.
+                <br><br>
+                Each row below is one physical beacon installed somewhere on campus.
+            </p>
+        </div>
+        <div class="card">
+            <h3 style="color:var(--accent-color); margin-bottom:.5rem;">
+                <i class="fas fa-signal"></i> What does RSSI mean?
+            </h3>
+            <p style="color:var(--text-secondary); font-size:.92rem;">
+                <strong>RSSI</strong> = Received Signal Strength Indicator, measured in
+                <strong>dBm</strong> (always negative for radio signals). It tells you how strong
+                the beacon&rsquo;s signal is when the phone hears it:
+            </p>
+            <ul style="color:var(--text-secondary); font-size:.88rem; margin: .4rem 0 .25rem 1.2rem;">
+                <li><code>-40 dBm</code> &mdash; right next to the beacon (~1 m)</li>
+                <li><code>-60 dBm</code> &mdash; a few rooms away (~5&ndash;10 m)</li>
+                <li><code>-80 dBm</code> &mdash; far / wall in between</li>
+            </ul>
+            <p style="color:var(--text-secondary); font-size:.88rem; margin-top: .4rem;">
+                The <strong>Reference RSSI</strong> column is what the signal <em>should</em> read at
+                the labelled landmark. The phone compares live readings against the references to
+                pinpoint the user (fingerprint localisation, accuracy ~3&ndash;5 m).
+            </p>
+        </div>
+    </div>
+
+    {% for b in buildings %}
+    <h3 style="margin: 1.4rem 0 .8rem;"><i class="fas fa-building"></i> {{ b }}</h3>
+    <div class="card" style="margin-bottom: 1rem;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Floor</th>
+                    <th>Room</th>
+                    <th>Beacon ID</th>
+                    <th>Reference RSSI</th>
+                    <th>Landmark</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for beacon in beacons if beacon.building == b %}
+                <tr>
+                    <td>{{ beacon.floor }}</td>
+                    <td>{{ beacon.room }}</td>
+                    <td><code style="background:#1a2233; padding:.2rem .45rem; border-radius:6px; font-size:.82rem;">{{ beacon.beacon_id }}</code></td>
+                    <td>{{ beacon.ssid_signal_dbm }} dBm</td>
+                    <td style="color:var(--text-secondary); font-size:.88rem;">{{ beacon.nearest_landmark }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}

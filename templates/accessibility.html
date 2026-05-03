@@ -1,0 +1,55 @@
+{% extends "_base.html" %}
+{% set active = "access" %}
+{% block title %}Accessibility Routes | SCNS{% endblock %}
+
+{% block content %}
+<section class="fade">
+    <h2 class="section-title">Accessibility Routes</h2>
+    <p class="section-sub">
+        Step-free walking paths with ramps and elevators highlighted &mdash; designed for differently-abled
+        members of the campus community.
+    </p>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Distance</th>
+                    <th>Ramp</th>
+                    <th>Elevator</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in routes %}
+                <tr>
+                    <td>{{ r.source }}</td>
+                    <td>{{ r.destination }}</td>
+                    <td>{{ r.distance_m }} m</td>
+                    <td><span class="tag {{ r.ramp_available }}">{{ r.ramp_available }}</span></td>
+                    <td><span class="tag {{ r.elevator_available }}">{{ r.elevator_available }}</span></td>
+                    <td style="color:var(--text-secondary); font-size:.88rem;">{{ r.notes }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="grid cols-3" style="margin-top: 1.6rem;">
+        <div class="card">
+            <h4 style="color:var(--accent-color); margin-bottom:.4rem;"><i class="fas fa-wheelchair"></i> Wheelchair</h4>
+            <p style="color:var(--text-secondary); font-size:.9rem;">All highlighted routes maintain a slope &lt; 5° and a minimum width of 1.2 m.</p>
+        </div>
+        <div class="card">
+            <h4 style="color:var(--accent-color); margin-bottom:.4rem;"><i class="fas fa-eye-low-vision"></i> Visually Impaired</h4>
+            <p style="color:var(--text-secondary); font-size:.9rem;">Tactile paving installed near LRC, ABB and Auditorium entrances. Audio cues planned (Sprint 4).</p>
+        </div>
+        <div class="card">
+            <h4 style="color:var(--accent-color); margin-bottom:.4rem;"><i class="fas fa-headphones-simple"></i> Hearing Impaired</h4>
+            <p style="color:var(--text-secondary); font-size:.9rem;">Visual emergency alerts on every page; vibration alerts via mobile companion app (planned).</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

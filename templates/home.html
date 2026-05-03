@@ -1,0 +1,39 @@
+{% extends "_base.html" %}
+{% set active = "home" %}
+{% block title %}Plan Your Route | SCNS{% endblock %}
+
+{% block content %}
+<section class="fade" style="max-width:680px; margin: 0 auto;">
+    <h2 class="section-title">Plan a Route</h2>
+    <p class="section-sub">Pick a source and destination from any registered location across JIIT-128 campus.</p>
+
+    <form method="POST" action="/result" class="card">
+        <div class="form-group">
+            <label for="source">-- SOURCE --</label>
+            <select name="source" id="source" class="form-control" required>
+                <option value="">-- choose source --</option>
+                {% for loc in locations %}
+                    <option value="{{ loc }}">{{ loc }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="destination">-- DESTINATION --</label>
+            <select name="destination" id="destination" class="form-control" required>
+                <option value="">-- choose destination --</option>
+                {% for loc in locations %}
+                    <option value="{{ loc }}">{{ loc }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn full"><i class="fas fa-route"></i> Find Route</button>
+    </form>
+
+    <p style="text-align:center; margin-top: 1.4rem; color: var(--text-secondary); font-size:.9rem;">
+        <i class="fas fa-info-circle"></i> Need a step-free path?
+        <a href="/accessibility" style="color:var(--accent-color);">Use the Accessibility module &rarr;</a>
+    </p>
+</section>
+{% endblock %}

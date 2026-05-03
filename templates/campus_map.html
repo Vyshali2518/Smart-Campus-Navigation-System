@@ -1,0 +1,284 @@
+{% extends "_base.html" %}
+{% set active = "map" %}
+{% block title %}Campus Map | SCNS{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+    .map-layout {
+        display: grid;
+        grid-template-columns: 1.7fr 1fr;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    @media (max-width: 900px) { .map-layout { grid-template-columns: 1fr; } }
+
+    #campus-map { width: 100%; height: 70vh; min-height: 540px; border-radius: 14px; overflow: hidden; }
+    .leaflet-container { background: #1a2233; }
+
+    /* Numbered circle pins */
+    .num-pin {
+        width: 32px; height: 32px; border-radius: 50%;
+        background: var(--primary-color); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: .95rem;
+        border: 3px solid #fff;
+        box-shadow: 0 3px 10px rgba(0,0,0,.45);
+    }
+    .num-pin.from { background: #10b981; }
+    .num-pin.to   { background: #ef4444; }
+
+    /* Sidebar */
+    .map-side {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        display: flex; flex-direction: column;
+        max-height: 70vh; min-height: 540px;
+    }
+    .map-side header {
+        padding: 1rem 1.1rem .6rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .map-side header h3 { font-size: 1rem; color: var(--accent-color); margin-bottom: .15rem; }
+    .map-side header p  { color: var(--text-secondary); font-size: .8rem; }
+
+    .pickbar { padding: .8rem 1rem; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: .35rem; }
+    .pickbar .row {
+        display: flex; align-items: center; gap: .5rem; font-size: .82rem;
+    }
+    .pickbar .dot {
+        width: 14px; height: 14px; border-radius: 50%;
+        border: 2px solid #fff; box-shadow: 0 0 0 1px var(--border-color);
+    }
+    .pickbar .dot.src { background: #10b981; }
+    .pickbar .dot.dst { background: #ef4444; }
+    .pickbar strong { color: var(--text-color); }
+
+    .pickbar .actions { display: flex; gap: .4rem; margin-top: .4rem; flex-wrap: wrap; }
+    .pickbar .actions button {
+        background: rgba(59,130,246,.15);
+        color: var(--accent-color);
+        border: 1px solid rgba(59,130,246,.3);
+        padding: .35rem .7rem; border-radius: 999px;
+        font-size: .75rem; cursor: pointer;
+    }
+    .pickbar .actions button.go {
+        background: var(--primary-color); color: #fff; border-color: var(--primary-color);
+    }
+    .pickbar .actions button:hover { transform: translateY(-1px); }
+
+    .loc-list { overflow-y: auto; padding: .4rem; }
+    .loc-item {
+        display: flex; align-items: center; gap: .7rem;
+        padding: .55rem .7rem; border-radius: 10px;
+        cursor: pointer; transition: background .15s ease;
+    }
+    .loc-item:hover { background: rgba(59,130,246,.08); }
+    .loc-item .idx {
+        width: 28px; height: 28px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--primary-color); color: #fff;
+        font-weight: 700; font-size: .82rem; flex-shrink: 0;
+    }
+    .loc-item.src .idx { background: #10b981; }
+    .loc-item.dst .idx { background: #ef4444; }
+    .loc-item .meta { flex: 1; min-width: 0; }
+    .loc-item .name { font-size: .9rem; font-weight: 500; }
+    .loc-item .cat  { font-size: .72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .4px; }
+    .loc-item.src, .loc-item.dst { background: rgba(59,130,246,.08); }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="fade">
+    <h2 class="section-title">Campus Map</h2>
+    <p class="section-sub">
+        JIIT Sector 128 — every campus location is pinned on the live OSM map. Click a number on the map
+        <strong>or</strong> click an item in the list on the right to set the
+        <strong style="color:#10b981;">Source</strong>, then a second one to set the
+        <strong style="color:#ef4444;">Destination</strong>.
+    </p>
+
+    <div class="map-layout">
+        <div class="card" style="padding:.5rem;">
+            <div id="campus-map"></div>
+        </div>
+
+        <div class="map-side">
+            <header>
+                <h3><i class="fas fa-list"></i> Locations</h3>
+                <p>Click any item to pick it as source or destination.</p>
+            </header>
+
+            <div class="pickbar">
+                <div class="row"><span class="dot src"></span> Source: <strong id="lbl-src">— not picked —</strong></div>
+                <div class="row"><span class="dot dst"></span> Destination: <strong id="lbl-dst">— not picked —</strong></div>
+                <div class="actions">
+                    <button id="btn-clear" type="button"><i class="fas fa-rotate-left"></i> Reset</button>
+                    <button id="btn-go" class="go" type="button"><i class="fas fa-route"></i> Open route</button>
+                </div>
+            </div>
+
+            <div class="loc-list" id="loc-list">
+                <p style="color:var(--text-secondary); font-size:.85rem; padding:1rem; text-align:center;">Loading locations…</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+    // Lock the map to JIIT-128 campus only — no panning out, zoom range constrained
+    const CAMPUS_BOUNDS = L.latLngBounds([28.5177, 77.3640], [28.5205, 77.3670]);
+    const map = L.map('campus-map', {
+        zoomControl: true,
+        scrollWheelZoom: true,
+        minZoom: 17,
+        maxZoom: 19,
+        maxBounds: CAMPUS_BOUNDS,
+        maxBoundsViscosity: 1.0
+    });
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    const lblSrc  = document.getElementById('lbl-src');
+    const lblDst  = document.getElementById('lbl-dst');
+    const listBox = document.getElementById('loc-list');
+    const btnClear = document.getElementById('btn-clear');
+    const btnGo    = document.getElementById('btn-go');
+
+    let locations = [];
+    let pickedSrc = null, pickedDst = null;
+    let routeLine = null;
+    const markers = {};
+
+    function makeIcon(idx, role) {
+        return L.divIcon({
+            className: '',
+            html: '<div class="num-pin ' + (role || '') + '">' + idx + '</div>',
+            iconSize: [32, 32], iconAnchor: [16, 16]
+        });
+    }
+
+    function refresh() {
+        // Marker icons
+        locations.forEach(function(loc, i) {
+            const m = markers[loc.name];
+            if (!m) return;
+            let role = '';
+            if (pickedSrc && pickedSrc.name === loc.name) role = 'from';
+            else if (pickedDst && pickedDst.name === loc.name) role = 'to';
+            m.setIcon(makeIcon(i + 1, role));
+        });
+
+        // Sidebar
+        Array.from(listBox.children).forEach(function(el) {
+            const n = el.dataset.name;
+            el.classList.remove('src', 'dst');
+            if (pickedSrc && pickedSrc.name === n) el.classList.add('src');
+            else if (pickedDst && pickedDst.name === n) el.classList.add('dst');
+        });
+
+        lblSrc.textContent = pickedSrc ? pickedSrc.name : '— not picked —';
+        lblDst.textContent = pickedDst ? pickedDst.name : '— not picked —';
+
+        // Route
+        if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+        if (pickedSrc && pickedDst) {
+            routeLine = L.polyline(
+                [[+pickedSrc.latitude, +pickedSrc.longitude],
+                 [+pickedDst.latitude, +pickedDst.longitude]],
+                { color: '#3b82f6', weight: 5, opacity: .8, dashArray: '8,8' }
+            ).addTo(map);
+            map.fitBounds(routeLine.getBounds(), { padding: [60, 60] });
+
+            fetch('/api/directions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    origin:      { lat: +pickedSrc.latitude, lng: +pickedSrc.longitude },
+                    destination: { lat: +pickedDst.latitude, lng: +pickedDst.longitude }
+                })
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if (data.routes && data.routes.length) {
+                    var coords = data.routes[0].geometry.coordinates.map(function(c){ return [c[1], c[0]]; });
+                    if (routeLine) map.removeLayer(routeLine);
+                    routeLine = L.polyline(coords, { color: '#3b82f6', weight: 6, opacity: .9 }).addTo(map);
+                    map.fitBounds(routeLine.getBounds(), { padding: [60, 60] });
+                }
+            }).catch(function(_){});
+        }
+    }
+
+    function pick(loc) {
+        if (pickedSrc && pickedSrc.name === loc.name) { pickedSrc = pickedDst; pickedDst = null; }
+        else if (pickedDst && pickedDst.name === loc.name) { pickedDst = null; }
+        else if (!pickedSrc) { pickedSrc = loc; }
+        else if (!pickedDst) { pickedDst = loc; }
+        else { pickedDst = loc; } // both set, replace dest
+        refresh();
+    }
+
+    btnClear.onclick = function(){ pickedSrc = null; pickedDst = null; refresh(); };
+    btnGo.onclick = function(){
+        if (!pickedSrc || !pickedDst) { alert('Pick a source and a destination first.'); return; }
+        const f = document.createElement('form');
+        f.method = 'POST'; f.action = '/result';
+        [['source', pickedSrc.name], ['destination', pickedDst.name]].forEach(function(kv){
+            const i = document.createElement('input');
+            i.type = 'hidden'; i.name = kv[0]; i.value = kv[1]; f.appendChild(i);
+        });
+        document.body.appendChild(f); f.submit();
+    };
+
+    fetch('/api/locations').then(function(r){ return r.json(); }).then(function(locs){
+        locations = locs;
+        const lats = [], lngs = [];
+
+        // Build sidebar list
+        listBox.innerHTML = '';
+        locs.forEach(function(loc, i){
+            const lat = +loc.latitude, lng = +loc.longitude;
+            lats.push(lat); lngs.push(lng);
+
+            // Map marker
+            const m = L.marker([lat, lng], { icon: makeIcon(i + 1) }).addTo(map);
+            m.on('click', function(){ pick(loc); });
+            markers[loc.name] = m;
+
+            // Sidebar item
+            const el = document.createElement('div');
+            el.className = 'loc-item';
+            el.dataset.name = loc.name;
+            el.innerHTML =
+                '<div class="idx">' + (i+1) + '</div>' +
+                '<div class="meta">' +
+                    '<div class="name">' + loc.name + '</div>' +
+                    '<div class="cat">' + (loc.category || '') + '</div>' +
+                '</div>';
+            el.onclick = function(){ pick(loc); };
+            listBox.appendChild(el);
+        });
+
+        if (lats.length) {
+            const bounds = L.latLngBounds(
+                [Math.min.apply(null, lats), Math.min.apply(null, lngs)],
+                [Math.max.apply(null, lats), Math.max.apply(null, lngs)]
+            );
+            map.fitBounds(CAMPUS_BOUNDS, { padding: [10, 10] });
+        } else {
+            map.setView([28.5193, 77.3653], 17);
+        }
+    });
+</script>
+{% endblock %}
