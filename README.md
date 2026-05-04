@@ -92,9 +92,7 @@ Visit `http://localhost:5000/` — you'll land on the campus map.
 | Name | GitHub |
 |------|--------|
 | **Mitanshu Finaviya** *(lead)* | [@Mitanshu4529](https://github.com/Mitanshu4529) |
-| Deepanshu Bhalia | — |
-| Raunak Kheshwani | — |
-| Devanshi Srivastava | — |
+| **Trish Gupta** *(Team Member)* | [@Trishgupta44](https://github.com/Trishgupta44) |
 
 ---
 
