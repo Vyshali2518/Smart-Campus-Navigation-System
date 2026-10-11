@@ -1,142 +1,139 @@
 {% extends "_base.html" %}
-{% set active = "home" %}
-{% block title %}{{ source }} → {{ destination }} | SCNS{% endblock %}
+{% block title %}{{ source }} to {{ destination }} | CampusNav{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <style>
-    #campus-map  { width: 100%; height: 520px; border-radius: 14px; overflow: hidden; }
-    .leaflet-container { background: #1a2233; }
-    .stat-row  { display:flex; gap:1rem; flex-wrap:wrap; margin: 1rem 0 1.5rem; }
-    .stat      { flex:1; min-width:140px; background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.2);
-                 padding: .9rem 1.1rem; border-radius: 12px; }
-    .stat .v   { font-size:1.6rem; font-weight:600; color: var(--accent-color); }
-    .stat .l   { font-size:.78rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; }
-    .step      { padding:.6rem .8rem; background:#1a2233; border-radius:8px; margin:.4rem 0; font-size:.9rem; }
-    .marker-pin {
-        background: var(--primary-color); color: white;
-        padding: .25rem .55rem; border-radius: 999px;
-        font-size: .75rem; font-weight: 600; white-space: nowrap;
-        box-shadow: 0 2px 8px rgba(0,0,0,.4); border: 2px solid #fff;
-    }
-    .marker-pin.dest { background: #ef4444; }
+    #route-map { height:430px; width:100%; border-radius:12px; }
+    .route-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:.8rem; }
+    .route-card { border:1px solid var(--line); border-radius:13px; padding:1rem; background:white; }
+    .route-card.shortest { border-color:#83c9a9; background:#fbfffd; }
+    .route-card.selected { box-shadow:0 0 0 2px rgba(37,99,235,.22); }
+    .route-stats { display:flex; gap:1.3rem; margin:.7rem 0; }
+    .route-stat strong { display:block; font-size:1.12rem; }
+    .route-stat span { color:var(--muted); font-size:.78rem; }
+    .route-stop-list { color:#475569; padding-left:1.3rem; }
+    .marker-label { display:inline-block; background:#fff; border:1px solid #cbd5e1; color:#172334; border-radius:5px; padding:2px 5px; white-space:nowrap; font-size:11px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <section class="fade">
-    <h2 class="section-title">{{ source }} → {{ destination }}</h2>
-    <p class="section-sub">Walking route over OpenStreetMap. Pinch / scroll to zoom &middot; drag to pan.</p>
-
-    <div class="stat-row">
-        <div class="stat">
-            <div class="l">Distance (straight line)</div>
-            <div class="v">{{ distance_m }} m</div>
-        </div>
-        <div class="stat">
-            <div class="l">Walk time (est.)</div>
-            <div class="v">{{ walk_min }} min</div>
-        </div>
-        <div class="stat">
-            <div class="l">Source category</div>
-            <div class="v" style="font-size:1rem; text-transform:capitalize;">{{ src.category }}</div>
-        </div>
-        <div class="stat">
-            <div class="l">Wheelchair access</div>
-            <div class="v" style="font-size:1rem; text-transform:capitalize;">{{ dst.wheelchair_accessible }}</div>
+    <p class="eyebrow">{{ mode|capitalize }} route · estimate</p>
+    <h1 class="section-title">{{ source }} <span aria-hidden="true">→</span> {{ destination }}</h1>
+    <p class="section-sub">Times use assumed speeds (walking 80 m/min; cycling 250 m/min). Paths and distances come from the demonstration graph, not verified paths.</p>
+    {% if message %}
+    <div class="callout warning" role="status">{{ message }}</div>
+    {% elif routes|length == 1 %}
+    <div class="callout" role="status">One connected route is available for this mode and preference; no separate alternative was found.</div>
+    {% endif %}
+    {% if routes %}
+    <div class="grid cols-2" style="margin:1rem 0">
+        <div class="card" style="padding:.5rem"><div id="route-map" aria-label="Map showing calculated route alternatives"></div></div>
+        <div class="card">
+            <h2 style="margin-top:0">Route options</h2>
+            <p class="hint">The shortest option is computed from total graph-edge distance.</p>
+            <div class="route-cards" id="route-cards">
+                {% for route in routes %}
+                <article class="route-card {% if loop.first %}shortest selected{% endif %}" data-route="{{ loop.index0 }}">
+                    <div class="button-row" style="justify-content:space-between">
+                        <strong>{% if loop.first %}Shortest route{% else %}Alternative {{ loop.index0 }}{% endif %}</strong>
+                        {% if loop.first %}<span class="tag yes">Shortest</span>{% endif %}
+                    </div>
+                    <div class="route-stats">
+                        <div class="route-stat"><strong>{{ route.distance_m }} m</strong><span>distance</span></div>
+                        <div class="route-stat"><strong>~{{ route.time_min }} min</strong><span>estimated time</span></div>
+                    </div>
+                    <p class="hint">{{ route.path|join(' → ') }}</p>
+                    {% if step_free %}<span class="tag yes">Matches step-free graph filter</span>{% endif %}
+                    <button type="button" class="btn secondary small select-route" data-route="{{ loop.index0 }}">Show this route</button>
+                </article>
+                {% endfor %}
+            </div>
         </div>
     </div>
-
-    <div class="card" style="padding:.5rem;">
-        <div id="campus-map"></div>
+    <div class="card">
+        <h2 style="margin-top:0">Stops on selected route</h2>
+        <ol id="route-stops" class="route-stop-list"></ol>
+        <p class="hint">Map lines connect sample location markers directly to represent graph edges; they are schematic, not surveyed walking paths.</p>
     </div>
-
-    <div class="card" style="margin-top: 1.4rem;">
-        <h3 style="margin-bottom:.8rem;"><i class="fas fa-shoe-prints"></i> Turn-by-turn (OSRM walking)</h3>
-        <div id="steps">
-            <p style="color:var(--text-secondary); font-size:.9rem;">Loading directions…</p>
-        </div>
-    </div>
-
-    <div style="margin-top:1.5rem; display:flex; gap:.8rem; flex-wrap:wrap;">
-        <a href="/home" class="back-btn"><i class="fas fa-arrow-left"></i> Plan another</a>
-        <a href="/map" class="back-btn"><i class="fas fa-map"></i> Full campus map</a>
-        <a href="https://www.openstreetmap.org/?mlat={{ dst.latitude }}&mlon={{ dst.longitude }}#map=18/{{ dst.latitude }}/{{ dst.longitude }}"
-           target="_blank" class="back-btn"><i class="fas fa-up-right-from-square"></i> Open in OSM</a>
+    {% endif %}
+    <div class="button-row" style="margin-top:1rem">
+        <a class="button-link secondary" href="{{ url_for('home', source=source, destination=destination, mode=mode, step_free='1' if step_free else '0') }}"><i class="fas fa-arrow-left"></i> Change route</a>
+        <a class="button-link secondary" href="{{ url_for('campus_map') }}"><i class="fas fa-map"></i> Explore map</a>
     </div>
 </section>
 {% endblock %}
 
 {% block scripts %}
+{% if routes %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-    const ORIGIN = { lat: {{ src.latitude }}, lng: {{ src.longitude }} };
-    const DEST   = { lat: {{ dst.latitude }}, lng: {{ dst.longitude }} };
-    const SRC_NAME = {{ source|tojson }};
-    const DST_NAME = {{ destination|tojson }};
-
-    // Lock to campus bounds; user can still zoom 17-19 and pan within JIIT-128
-    const CAMPUS_BOUNDS = L.latLngBounds([28.5177, 77.3640], [28.5205, 77.3670]);
-    const map = L.map('campus-map', {
-        zoomControl: true,
-        scrollWheelZoom: true,
-        minZoom: 17,
-        maxZoom: 19,
-        maxBounds: CAMPUS_BOUNDS,
-        maxBoundsViscosity: 1.0
-    }).setView([(ORIGIN.lat + DEST.lat)/2, (ORIGIN.lng + DEST.lng)/2], 18);
-
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+(() => {
+    const routes = {{ routes|tojson }};
+    const locations = {{ locations|tojson }};
+    const byName = new Map(locations.map((location) => [location.name, location]));
+    const map = L.map("route-map", { scrollWheelZoom: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
-
-    const srcIcon = L.divIcon({ className: '', html: '<div class="marker-pin">A · ' + SRC_NAME + '</div>', iconSize: [120, 28], iconAnchor: [10, 14] });
-    const dstIcon = L.divIcon({ className: '', html: '<div class="marker-pin dest">B · ' + DST_NAME + '</div>', iconSize: [120, 28], iconAnchor: [10, 14] });
-
-    L.marker([ORIGIN.lat, ORIGIN.lng], { icon: srcIcon }).addTo(map);
-    L.marker([DEST.lat,   DEST.lng],   { icon: dstIcon }).addTo(map);
-
-    let routeLine = L.polyline([[ORIGIN.lat, ORIGIN.lng], [DEST.lat, DEST.lng]], {
-        color: '#3b82f6', weight: 5, opacity: .7, dashArray: '8,8'
-    }).addTo(map);
-    map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
-
-    const stepsBox = document.getElementById('steps');
-
-    fetch('/api/directions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origin: ORIGIN, destination: DEST })
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-        if (data.routes && data.routes.length) {
-            var r0 = data.routes[0];
-            var coords = r0.geometry.coordinates.map(function(c){ return [c[1], c[0]]; });
-            map.removeLayer(routeLine);
-            routeLine = L.polyline(coords, { color: '#3b82f6', weight: 6, opacity: .9 }).addTo(map);
-            map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
-
-            var steps = r0.legs[0].steps;
-            if (!steps.length) {
-                stepsBox.innerHTML = '<p style="color:var(--text-secondary);">Direct walk — no turns needed.</p>';
-                return;
-            }
-            stepsBox.innerHTML = steps.map(function(s, i) {
-                var d = Math.round(s.distance);
-                var m = s.maneuver ? (s.maneuver.modifier || s.maneuver.type) : '';
-                var name = s.name || 'unnamed path';
-                return '<div class="step"><strong>' + (i+1) + '.</strong> ' + (m ? m + ' onto ' : 'Continue on ') + '<em>' + name + '</em> · ' + d + ' m</div>';
-            }).join('');
-        } else {
-            stepsBox.innerHTML = '<p style="color:var(--text-secondary);">No turn-by-turn data available. Straight-line route shown.</p>';
-        }
-    })
-    .catch(function(_) {
-        stepsBox.innerHTML = '<p style="color:var(--text-secondary);">Could not load turn-by-turn (OSRM unreachable). Map still shows the route.</p>';
+    const colors = ["#16845b", "#d97706", "#64748b"];
+    const lines = routes.map((route, index) => {
+        const points = route.path.map((name) => {
+            const item = byName.get(name);
+            return [Number(item.latitude), Number(item.longitude)];
+        });
+        const line = L.polyline(points, {
+            color: colors[Math.min(index, colors.length - 1)],
+            weight: index === 0 ? 7 : 5,
+            opacity: index === 0 ? .95 : .72,
+            dashArray: index === 0 ? null : "8 7"
+        }).addTo(map);
+        line.on("click", () => selectRoute(index));
+        return line;
     });
+    const allPoints = locations.map((item) => [Number(item.latitude), Number(item.longitude)]);
+    locations.forEach((item) => {
+        const isEndpoint = item.name === {{ source|tojson }} || item.name === {{ destination|tojson }};
+        const marker = L.circleMarker([Number(item.latitude), Number(item.longitude)], {
+            radius: isEndpoint ? 8 : 5,
+            color: isEndpoint ? "#172334" : "#fff",
+            weight: 2,
+            fillColor: item.name === {{ source|tojson }} ? "#16845b" :
+                (item.name === {{ destination|tojson }} ? "#b42318" : "#2563eb"),
+            fillOpacity: 1
+        }).addTo(map);
+        marker.bindTooltip(item.name, { direction: "top", offset: [0, -5] });
+    });
+    map.fitBounds(L.latLngBounds(allPoints).pad(.1), { maxZoom: 18 });
+
+    function selectRoute(index) {
+        lines.forEach((line, lineIndex) => {
+            line.setStyle({
+                weight: lineIndex === index ? 8 : (lineIndex === 0 ? 6 : 4),
+                opacity: lineIndex === index ? 1 : .55
+            });
+            line.bringToFront();
+        });
+        document.querySelectorAll(".route-card").forEach((card, cardIndex) => {
+            card.classList.toggle("selected", cardIndex === index);
+        });
+        const stopList = document.getElementById("route-stops");
+        stopList.replaceChildren();
+        routes[index].path.forEach((stop) => {
+            const item = document.createElement("li");
+            item.textContent = stop;
+            stopList.append(item);
+        });
+    }
+    document.querySelectorAll(".select-route").forEach((button) => {
+        button.addEventListener("click", () => selectRoute(Number(button.dataset.route)));
+    });
+    selectRoute(0);
+})();
 </script>
+{% endif %}
 {% endblock %}

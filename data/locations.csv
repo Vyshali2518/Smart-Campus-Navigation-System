@@ -1,16 +1,35 @@
-name,category,latitude,longitude,description,wheelchair_accessible
-Main Gate (Gate 1),gate,28.51969,77.36489,Primary entry to JIIT Sector 128 campus,yes
-Gate 2,gate,28.51861,77.36481,Secondary entry near hostel side,yes
-LRC,academic,28.519180005022704,77.36514748931666,Learning Resource Centre - Library,yes
-MPH,academic,28.51988894861315,77.36518268772066,Multi-Purpose Hall used for events,yes
-Computer Lab 1,academic,28.519755816363944,77.36572186715986,CSE Lab 1,yes
-Computer Lab 2,academic,28.51952500691441,77.36566727937242,CSE Lab 2,yes
-Innovation Hub,academic,28.518797232431844,77.3651201478959,Innovation Hub - student maker / project space,yes
-OAT,facility,28.51862546916445,77.36516029170927,Open Air Theatre - cultural and event venue,partial
-Mess,food,28.519111,77.365694,Main mess and dining hall,yes
-Cafeteria,food,28.518944,77.365667,Central campus cafe,partial
-Football Ground,sports,28.51795168709164,77.36497385565573,Football and cricket ground,yes
-Main Ground,sports,28.519767693051058,77.36605968662472,Main playground and athletics area,yes
-Parking (Students Cars),facility,28.51899880598893,77.3647265310806,Student car parking lot,yes
-Parking (Students Bikes),facility,28.519827440000466,77.36481057883401,Student bike / two-wheeler parking,yes
-Parking (Teachers),facility,28.519377429409065,77.36491533581669,Faculty parking lot,yes
+name,category,latitude,longitude,description,wheelchair_accessible,accessibility_notes
+Main Gate (Gate 1),gates and transport,28.51969,77.36489,Sample main entrance; details and coordinates are illustrative,unknown,Not verified
+Gate 2,gates and transport,28.51861,77.36481,Sample secondary entrance; details and coordinates are illustrative,unknown,Not verified
+LRC,library,28.51918,77.36515,Sample library and learning resource centre,unknown,Not verified
+MPH,academic buildings,28.51989,77.36518,Sample multipurpose hall,unknown,Not verified
+Computer Lab 1,laboratories,28.51976,77.36572,Sample computer laboratory,unknown,Not verified
+Computer Lab 2,laboratories,28.51953,77.36567,Sample computer laboratory,unknown,Not verified
+Innovation Hub,other facilities,28.51880,77.36512,Sample project and innovation space,unknown,Not verified
+OAT,sports and recreation,28.51863,77.36516,Sample open-air theatre,unknown,Not verified
+Mess,canteens and food,28.51911,77.36569,Sample dining hall,unknown,Not verified
+Cafeteria,canteens and food,28.51894,77.36567,Sample campus cafe,unknown,Not verified
+Football Ground,sports and recreation,28.51795,77.36497,Sample sports ground,unknown,Not verified
+Main Ground,sports and recreation,28.51977,77.36606,Sample recreation ground,unknown,Not verified
+Parking (Students Cars),parking,28.51900,77.36473,Sample student car parking,unknown,Not verified
+Parking (Students Bikes),parking,28.51983,77.36481,Sample bicycle and two-wheeler parking,unknown,Not verified
+Parking (Teachers),parking,28.51938,77.36492,Sample staff parking,unknown,Not verified
+Academic Block,academic buildings,28.51967,77.36541,Sample academic building,unknown,Not verified
+CSE Department,academic buildings,28.51970,77.36556,Sample department,unknown,Not verified
+ECE Department,academic buildings,28.51955,77.36551,Sample department,unknown,Not verified
+Science Laboratory,laboratories,28.51959,77.36536,Sample science laboratory,unknown,Not verified
+Administration Office,administration,28.51948,77.36527,Sample administration office,unknown,Not verified
+Auditorium,academic buildings,28.51995,77.36539,Sample auditorium,unknown,Not verified
+Seminar Hall,academic buildings,28.51983,77.36545,Sample seminar hall,unknown,Not verified
+Main Canteen,canteens and food,28.51899,77.36574,Sample dining location,unknown,Not verified
+Food Court,canteens and food,28.51904,77.36582,Sample food court,unknown,Not verified
+Canteen 2,canteens and food,28.51910,77.36584,Sample dining location,unknown,Not verified
+Boys' Hostel,hostels,28.51872,77.36498,Sample residence,unknown,Not verified
+Girls' Hostel,hostels,28.51876,77.36504,Sample residence,unknown,Not verified
+Hostel Dining Hall,canteens and food,28.51881,77.36501,Sample dining location,unknown,Not verified
+Parking Area,parking,28.51893,77.36478,Sample parking area,unknown,Not verified
+Medical Centre,medical facilities,28.51893,77.36512,Sample medical facility,unknown,Not verified
+Student Activity Centre,other facilities,28.51873,77.36519,Sample student activity space,unknown,Not verified
+Bus Stop,gates and transport,28.51854,77.36489,Sample transport stop,unknown,Not verified
+Secondary Gate,gates and transport,28.51849,77.36478,Sample secondary entrance,unknown,Not verified
+Visitor Parking,parking,28.51857,77.36495,Sample visitor parking,unknown,Not verified
