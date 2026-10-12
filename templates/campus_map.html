@@ -1,46 +1,106 @@
 {% extends "_base.html" %}
-{% block title %}Explore the map | CampusNav{% endblock %}
+{% block title %}Map and route planner | CampusNav{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <style>
-    .map-layout { display:grid; grid-template-columns:minmax(0, 1.7fr) minmax(280px, .8fr); gap:1rem; }
-    #campus-map { width:100%; height:min(68vh, 680px); min-height:420px; border-radius:12px; }
-    .map-sidebar { max-height:68vh; min-height:420px; display:flex; flex-direction:column; }
-    .map-sidebar .loc-list { overflow:auto; margin-top:.7rem; }
-    .map-tools { display:grid; gap:.65rem; }
-    .loc-item { display:flex; align-items:flex-start; gap:.7rem; padding:.7rem .6rem; border-bottom:1px solid #edf0f4; }
+    .map-layout { display:grid; grid-template-columns:minmax(0, 1.65fr) minmax(300px, .85fr); gap:1rem; align-items:stretch; }
+    .map-layout > .card { display:flex; min-height:430px; }
+    #campus-map { width:100%; height:auto; min-height:430px; flex:1; border-radius:12px; }
+    .map-sidebar { min-width:0; display:flex; flex-direction:column; }
+    .map-sidebar .loc-list { flex:0 1 auto; min-height:120px; max-height:280px; overflow-y:auto; margin-top:.45rem; }
+    .map-tools { display:grid; gap:.55rem; }
+    .route-form { padding-bottom:.9rem; border-bottom:1px solid var(--line); }
+    .route-form .form-group { margin-bottom:.65rem; }
+    .route-buttons { display:grid; grid-template-columns:1fr 1fr; gap:.45rem; }
+    .route-buttons .btn:last-child { grid-column:1/-1; }
+    .loc-item { display:flex; align-items:flex-start; gap:.7rem; padding:.65rem .45rem; border-bottom:1px solid #edf0f4; }
     .loc-item:last-child { border-bottom:0; }
-    .loc-item .dot { flex:0 0 12px; height:12px; border-radius:50%; margin-top:.38rem; background:#54748e; }
+    .loc-item .dot { flex:0 0 12px; height:12px; border-radius:50%; margin-top:.38rem; }
     .loc-item .meta { min-width:0; flex:1; }
     .loc-item .name { font-weight:700; }
     .loc-item .cat { color:#64748b; font-size:.78rem; text-transform:capitalize; }
     .location-actions { display:flex; gap:.35rem; margin-top:.4rem; flex-wrap:wrap; }
-    .category-legend { display:flex; flex-wrap:wrap; gap:.55rem 1rem; margin:.8rem 0 1rem; }
+    .category-legend, .route-legend { display:flex; flex-wrap:wrap; gap:.45rem 1rem; margin:.7rem 0 1rem; }
     .legend-item { display:inline-flex; align-items:center; gap:.35rem; color:#475569; font-size:.8rem; }
-    .num-pin { display:grid; place-items:center; width:30px; height:30px; border:2px solid white; border-radius:50%; background:#2563eb; color:white; box-shadow:0 2px 7px #0003; font-weight:800; }
+    .num-pin { display:grid; place-items:center; width:30px; height:30px; border:2px solid white; border-radius:50%; color:white; box-shadow:0 2px 7px #0003; font-weight:800; }
+    .route-line { width:22px; height:3px; display:inline-block; border-radius:5px; }
     .leaflet-container { background:#e9eff2; }
-    @media(max-width:850px) { .map-layout { grid-template-columns:1fr; } .map-sidebar { max-height:520px; min-height:300px; } }
+    .leaflet-popup-content a.button-link { color:#fff; }
+    .leaflet-popup-content a.button-link.secondary { color:var(--ink); }
+    .route-results { margin-top:1rem; }
+    .route-results[hidden] { display:none; }
+    .route-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:.75rem; }
+    .route-card { background:white; border:1px solid var(--line); border-radius:12px; padding:.9rem; }
+    .route-card.selected { border-color:var(--blue); box-shadow:0 0 0 2px #2563eb20; }
+    .route-card h3 { font-size:1rem; margin:0; }
+    .route-metrics { display:flex; gap:1.3rem; margin:.5rem 0; }
+    .route-metrics strong { display:block; font-size:1.1rem; }
+    .route-metrics span { color:var(--muted); font-size:.75rem; }
+    .route-instructions { padding-left:1.2rem; color:#475569; font-size:.84rem; }
+    @media(max-width:850px) { .map-layout { grid-template-columns:1fr; } .map-layout > .card { height:52vh; min-height:350px; } #campus-map { min-height:0; } }
+    @media(max-width:600px) { .route-cards { grid-template-columns:1fr; } }
 </style>
 {% endblock %}
 
 {% block content %}
 <section class="fade">
-    <p class="eyebrow">Explore</p>
+    <p class="eyebrow">Explore and route</p>
     <h1 class="section-title">Campus map</h1>
-    <p class="section-sub">Search and filter sample places, open a marker for details, and send a selected place to route planning. Locations and coordinates are illustrative and not officially verified.</p>
-    <div class="category-legend" aria-label="Map marker categories">
+    <p class="section-sub">Find real OpenStreetMap routes for walking, cycling, or driving. Route shape, distance, and travel-time estimates come from the routing service; accuracy depends on the saved location coordinates and available map data.</p>
+    <div class="callout warning">OpenStreetMap route data is used via Valhalla. The service can snap a selected coordinate to a nearby mapped path/road. Confirm the saved coordinates and route conditions locally. Route output does not certify accessibility.</div>
+    <div class="route-legend" aria-label="Route line colours">
+        <span class="legend-item"><span class="route-line" style="background:#16845b"></span>Primary route</span>
+        <span class="legend-item"><span class="route-line" style="background:#d97706"></span>Alternative route</span>
+        <span class="legend-item"><span class="route-line" style="background:#64748b"></span>Other alternative</span>
+    </div>
+    <div class="category-legend" aria-label="Location categories">
         {% for category in categories %}
-        <span class="legend-item"><span class="dot" style="width:10px;height:10px;border-radius:50%;background:#54748e"></span>{{ category }}</span>
+        <span class="legend-item"><span class="dot" style="width:10px;height:10px;border-radius:50%;background:{{ ['#2563eb','#16845b','#d97706','#7c3aed','#0891b2','#db2777','#475569','#65a30d','#9333ea','#0f766e','#b45309'][loop.index0 % 11] }}"></span>{{ category }}</span>
         {% endfor %}
     </div>
     <div class="map-layout">
-        <div class="card" style="padding:.5rem"><div id="campus-map" aria-label="Interactive map of demonstration locations"></div></div>
+        <div class="card" style="padding:.5rem"><div id="campus-map" aria-label="Interactive map with real route geometry"></div></div>
         <aside class="card map-sidebar">
-            <div class="map-tools">
+            <form id="map-route-form" class="route-form">
+                <h2 id="route-planner" style="font-size:1.1rem;margin:.1rem 0 .65rem">Plan a real route</h2>
+                <div class="form-group">
+                    <label for="route-source">Starting location</label>
+                    <select class="form-control" id="route-source" required>
+                        <option value="">Choose a location</option>
+                        {% for location in locations %}
+                        <option value="{{ location.name }}" {% if selected_source == location.name %}selected{% endif %}>{{ location.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="route-destination">Destination</label>
+                    <select class="form-control" id="route-destination" required>
+                        <option value="">Choose a location</option>
+                        {% for location in locations %}
+                        <option value="{{ location.name }}" {% if selected_destination == location.name %}selected{% endif %}>{{ location.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="route-mode">Travel mode</label>
+                    <select class="form-control" id="route-mode">
+                        <option value="walking" {% if selected_mode == 'walking' %}selected{% endif %}>Walking</option>
+                        <option value="cycling" {% if selected_mode == 'cycling' %}selected{% endif %}>Bike / cycling</option>
+                        <option value="car" {% if selected_mode == 'car' %}selected{% endif %}>Car</option>
+                    </select>
+                </div>
+                <div class="route-buttons">
+                    <button type="button" class="btn secondary small" id="swap-route"><i class="fas fa-right-left"></i> Swap</button>
+                    <button type="button" class="btn secondary small" id="clear-route"><i class="fas fa-xmark"></i> Clear</button>
+                    <button type="submit" class="btn"><i class="fas fa-route"></i> Find real routes</button>
+                </div>
+                <p class="hint" id="route-status" role="status" aria-live="polite" style="margin:.55rem 0 0">Choose locations and a mode to begin.</p>
+            </form>
+            <div class="map-tools" style="margin-top:.75rem">
                 <div>
-                    <label for="location-search">Search location</label>
+                    <label for="location-search">Search locations</label>
                     <input class="form-control" id="location-search" type="search" placeholder="e.g. library">
                 </div>
                 <div>
@@ -51,10 +111,18 @@
                     </select>
                 </div>
             </div>
-            <p class="hint" id="location-count" style="margin:.7rem 0 0"></p>
+            <p class="hint" id="location-count" style="margin:.6rem 0 0"></p>
             <div class="loc-list" id="loc-list"></div>
         </aside>
     </div>
+    <section id="route-results" class="card route-results" hidden aria-live="polite">
+        <div class="button-row" style="justify-content:space-between">
+            <h2 id="route-results-title" style="font-size:1.15rem;margin:0">Real route results</h2>
+            <span class="tag" id="route-provider"></span>
+        </div>
+        <p id="route-alternative-note" class="hint"></p>
+        <div id="route-cards" class="route-cards"></div>
+    </section>
 </section>
 {% endblock %}
 
@@ -64,18 +132,41 @@
 <script>
 (() => {
     const locations = {{ locations|tojson }};
+    const categories = {{ categories|tojson }};
+    const initialSource = {{ selected_source|tojson }};
+    const initialDestination = {{ selected_destination|tojson }};
+    const initialMode = {{ selected_mode|tojson }};
+    const palette = ["#2563eb", "#16845b", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#475569", "#65a30d", "#9333ea", "#0f766e", "#b45309"];
+    const categoryColors = new Map(categories.map((item, index) => [item, palette[index % palette.length]]));
     const map = L.map("campus-map", { scrollWheelZoom: true });
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
     const markerLayer = L.layerGroup().addTo(map);
+    const routeLayers = [];
     const markers = new Map();
     const list = document.getElementById("loc-list");
     const search = document.getElementById("location-search");
     const category = document.getElementById("category-filter");
     const count = document.getElementById("location-count");
-    const escapeText = (value) => String(value || "");
+    const source = document.getElementById("route-source");
+    const destination = document.getElementById("route-destination");
+    const mode = document.getElementById("route-mode");
+    const routeForm = document.getElementById("map-route-form");
+    const routeStatus = document.getElementById("route-status");
+    const results = document.getElementById("route-results");
+    const resultCards = document.getElementById("route-cards");
+    const routeColors = ["#16845b", "#d97706", "#64748b"];
+
+    function routeLink(locationName) {
+        const params = new URLSearchParams({
+            source: source.value,
+            destination: locationName,
+            mode: mode.value
+        });
+        return "{{ url_for('campus_map') }}?" + params.toString() + "#route-planner";
+    }
 
     function openLocation(location) {
         map.setView([Number(location.latitude), Number(location.longitude)], 18);
@@ -84,14 +175,11 @@
         heading.textContent = location.name;
         const description = document.createElement("p");
         description.textContent = location.description;
-        const label = document.createElement("span");
-        label.className = "tag unknown";
-        label.textContent = "Accessibility: " + (location.wheelchair_accessible || "unknown");
         const link = document.createElement("a");
         link.className = "button-link small";
-        link.href = "{{ url_for('home') }}" + "?destination=" + encodeURIComponent(location.name);
+        link.href = routeLink(location.name);
         link.textContent = "Plan a route here";
-        content.append(heading, description, label, document.createElement("br"), link);
+        content.append(heading, description, link);
         markers.get(location.name).bindPopup(content).openPopup();
     }
 
@@ -107,7 +195,7 @@
             const marker = L.marker([Number(location.latitude), Number(location.longitude)], {
                 icon: L.divIcon({
                     className: "",
-                    html: '<span class="num-pin">' + (index + 1) + "</span>",
+                    html: '<span class="num-pin" style="background:' + (categoryColors.get(location.category) || "#2563eb") + '">' + (index + 1) + "</span>",
                     iconSize: [30, 30],
                     iconAnchor: [15, 15]
                 })
@@ -119,14 +207,15 @@
             row.className = "loc-item";
             const dot = document.createElement("span");
             dot.className = "dot";
+            dot.style.background = categoryColors.get(location.category) || "#2563eb";
             const meta = document.createElement("div");
             meta.className = "meta";
             const name = document.createElement("div");
             name.className = "name";
-            name.textContent = escapeText(location.name);
+            name.textContent = location.name;
             const cat = document.createElement("div");
             cat.className = "cat";
-            cat.textContent = escapeText(location.category) + " · accessibility " + escapeText(location.wheelchair_accessible || "unknown");
+            cat.textContent = location.category;
             const actions = document.createElement("div");
             actions.className = "location-actions";
             const focus = document.createElement("button");
@@ -135,22 +224,162 @@
             focus.textContent = "Show";
             focus.addEventListener("click", () => openLocation(location));
             const navigate = document.createElement("a");
-            navigate.className = "button-link small";
-            navigate.href = "{{ url_for('home') }}" + "?destination=" + encodeURIComponent(location.name);
+            navigate.className = "button-link secondary small";
+            navigate.href = routeLink(location.name);
             navigate.textContent = "Route here";
             actions.append(focus, navigate);
             meta.append(name, cat, actions);
             row.append(dot, meta);
             list.append(row);
         });
-        count.textContent = visible.length + " of " + locations.length + " sample locations";
+        count.textContent = visible.length + " of " + locations.length + " locations";
     }
+
+    function formatDistance(metres) {
+        return metres >= 1000 ? (metres / 1000).toFixed(1) + " km" : metres + " m";
+    }
+
+    function formatDuration(minutes) {
+        if (minutes < 60) return minutes + " min";
+        const hours = Math.floor(minutes / 60);
+        const remaining = minutes % 60;
+        return hours + " h" + (remaining ? " " + remaining + " min" : "");
+    }
+
+    function clearRouteLayers() {
+        routeLayers.splice(0).forEach((layer) => map.removeLayer(layer));
+    }
+
+    function selectRoute(index, routes) {
+        routeLayers.forEach((layer, layerIndex) => {
+            layer.setStyle({
+                weight: layerIndex === index ? 8 : 5,
+                opacity: layerIndex === index ? 1 : .45
+            });
+            if (layerIndex === index) layer.bringToFront();
+        });
+        document.querySelectorAll(".route-card").forEach((card, cardIndex) => {
+            card.classList.toggle("selected", cardIndex === index);
+        });
+        const selected = routeLayers[index];
+        if (selected) map.fitBounds(selected.getBounds(), { padding: [35, 35], maxZoom: 18 });
+    }
+
+    function renderRoutes(data) {
+        clearRouteLayers();
+        resultCards.replaceChildren();
+        const routes = data.routes;
+        document.getElementById("route-results-title").textContent =
+            source.value + " → " + destination.value + " · " + mode.options[mode.selectedIndex].text;
+        document.getElementById("route-provider").textContent = data.provider;
+        document.getElementById("route-alternative-note").textContent =
+            routes.length === 1
+                ? "The routing service returned one route; no alternative is available for this pair."
+                : routes.length + " routes returned by the routing service. Select a card to highlight its actual route geometry.";
+
+        routes.forEach((route, index) => {
+            const line = L.polyline(route.coordinates, {
+                color: routeColors[Math.min(index, routeColors.length - 1)],
+                weight: index === 0 ? 8 : 5,
+                opacity: index === 0 ? .95 : .7
+            }).addTo(map);
+            routeLayers.push(line);
+
+            const card = document.createElement("article");
+            card.className = "route-card" + (index === 0 ? " selected" : "");
+            const header = document.createElement("div");
+            header.className = "button-row";
+            header.style.justifyContent = "space-between";
+            const title = document.createElement("h3");
+            title.textContent = route.name;
+            const routeTag = document.createElement("span");
+            routeTag.className = "tag " + (index === 0 ? "yes" : "");
+            routeTag.textContent = index === 0 ? "Primary" : "Alternative";
+            header.append(title, routeTag);
+
+            const metrics = document.createElement("div");
+            metrics.className = "route-metrics";
+            metrics.innerHTML = "<div><strong></strong><span>distance</span></div><div><strong></strong><span>estimated time</span></div>";
+            metrics.children[0].querySelector("strong").textContent = formatDistance(route.distance_m);
+            metrics.children[1].querySelector("strong").textContent = formatDuration(route.time_min);
+            const details = document.createElement("details");
+            const summary = document.createElement("summary");
+            summary.textContent = "Turn-by-turn directions";
+            const instructions = document.createElement("ol");
+            instructions.className = "route-instructions";
+            route.instructions.forEach((instruction) => {
+                const item = document.createElement("li");
+                item.textContent = instruction;
+                instructions.append(item);
+            });
+            details.append(summary, instructions);
+            card.append(header, metrics, details);
+            card.addEventListener("click", (event) => {
+                if (event.target.closest("details")) return;
+                selectRoute(index, routes);
+            });
+            resultCards.append(card);
+        });
+        results.hidden = false;
+        selectRoute(0, routes);
+    }
+
+    async function findRoutes(event) {
+        if (event) event.preventDefault();
+        if (!source.value || !destination.value) {
+            routeStatus.textContent = "Choose both a starting location and destination.";
+            routeStatus.className = "hint";
+            return;
+        }
+        if (source.value === destination.value) {
+            routeStatus.textContent = "Starting location and destination must be different.";
+            routeStatus.className = "hint";
+            return;
+        }
+        clearRouteLayers();
+        results.hidden = true;
+        routeStatus.textContent = "Contacting the OpenStreetMap routing service…";
+        routeStatus.className = "hint";
+        const submit = routeForm.querySelector('button[type="submit"]');
+        submit.disabled = true;
+        try {
+            const response = await fetch("{{ url_for('api_routes') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ source: source.value, destination: destination.value, mode: mode.value })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Could not find a real route.");
+            renderRoutes(data);
+            routeStatus.textContent = "Route geometry and estimates loaded from OpenStreetMap routing data.";
+            routeStatus.className = "hint";
+        } catch (error) {
+            routeStatus.textContent = error.message || "Routing service is unavailable. Please try again.";
+            routeStatus.className = "hint";
+        } finally {
+            submit.disabled = false;
+        }
+    }
+
+    document.getElementById("swap-route").addEventListener("click", () => {
+        [source.value, destination.value] = [destination.value, source.value];
+    });
+    document.getElementById("clear-route").addEventListener("click", () => {
+        source.value = "";
+        destination.value = "";
+        clearRouteLayers();
+        results.hidden = true;
+        routeStatus.textContent = "Choose locations and a mode to begin.";
+    });
+    routeForm.addEventListener("submit", findRoutes);
+    search.addEventListener("input", renderLocations);
+    category.addEventListener("change", renderLocations);
+
     const points = locations.map((location) => [Number(location.latitude), Number(location.longitude)]);
     if (points.length) map.fitBounds(L.latLngBounds(points).pad(.15), { maxZoom: 17 });
     else map.setView([28.5193, 77.3653], 15);
-    search.addEventListener("input", renderLocations);
-    category.addEventListener("change", renderLocations);
     renderLocations();
+    if (initialSource && initialDestination) findRoutes();
 })();
 </script>
 {% endblock %}

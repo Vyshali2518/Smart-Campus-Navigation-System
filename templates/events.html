@@ -27,7 +27,7 @@
             <div class="form-group">
                 <label for="category">Category</label>
                 <select class="form-control" name="category" id="category">
-                    {% for value in ['workshop', 'seminar', 'technical event', 'cultural event', 'sports event', 'club activity', 'guest lecture', 'notice', 'emergency'] %}
+                    {% for value in ['workshop', 'seminar', 'technical event', 'cultural event', 'sports event', 'club activity', 'guest lecture', 'notice', 'emergency', 'event', 'academic', 'sports'] %}
                     <option value="{{ value }}" {% if editing and editing.category|lower == value %}selected{% endif %}>{{ value|title }}</option>
                     {% endfor %}
                 </select>
@@ -35,6 +35,11 @@
             <div class="form-group">
                 <label for="date">Date *</label>
                 <input class="form-control" type="date" name="date" id="date" required value="{{ editing.date if editing else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="end_date">End date</label>
+                <input class="form-control" type="date" name="end_date" id="end_date" value="{{ editing.end_date if editing else '' }}">
+                <p class="hint">Leave blank for a one-day event.</p>
             </div>
             <div class="form-group">
                 <label for="location">Location *</label>
@@ -71,7 +76,7 @@
                 {% if editing %}<a class="button-link secondary" href="{{ url_for('events') }}">Cancel</a>{% endif %}
             </div>
         </div>
-        <p class="hint" style="margin-bottom:0">Fields marked * are required. End time cannot be earlier than start time when both are entered.</p>
+        <p class="hint" style="margin-bottom:0">Fields marked * are required. The end date and time must not be earlier than the start date and time.</p>
     </form>
 
     <form class="card form-grid" method="get" action="{{ url_for('events') }}" style="margin-bottom:1.2rem">
@@ -106,11 +111,14 @@
             {% if event.image_url %}<img src="{{ event.image_url }}" alt="" loading="lazy" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:.7rem">{% endif %}
             <div class="button-row" style="justify-content:space-between">
                 <h3 style="margin:0;font-size:1.05rem">{{ event.title }}</h3>
-                <span class="tag {{ event.priority }}">{{ event.priority }}</span>
+                <div class="button-row">
+                    <span class="tag {{ 'over' if event.status == 'Over' else 'in-progress' if event.status == 'In progress' else 'review' if 'review' in event.status|lower or 'mismatch' in event.status|lower else 'unknown' }}">{{ event.status }}</span>
+                    <span class="tag {{ event.priority }}">{{ event.priority }}</span>
+                </div>
             </div>
             <p style="color:#475569;margin:.5rem 0">{{ event.description or 'No description provided.' }}</p>
             <div class="hint">
-                <span><i class="far fa-calendar"></i> {{ event.date or 'Date not supplied' }}</span>
+                <span><i class="far fa-calendar"></i> {{ event.date or 'Date not supplied' }}{% if event.end_date and event.end_date != event.date %} – {{ event.end_date }}{% endif %}</span>
                 {% if event.start_time %} · {{ event.start_time }}{% endif %}{% if event.end_time %}–{{ event.end_time }}{% endif %}
                 <br><span><i class="fas fa-location-dot"></i> {{ event.location }}</span>
                 · <span class="tag">{{ event.category }}</span>

@@ -15,7 +15,7 @@
 <body>
     <header class="site-header">
         <div class="nav-container">
-            <a class="brand" href="{{ url_for('campus_map') }}" aria-label="CampusNav home">
+            <a class="brand" href="{{ url_for('home') }}" aria-label="CampusNav home">
                 <span class="brand-mark"><i class="fas fa-location-dot"></i></span>
                 <span>Campus<span class="brand-accent">Nav</span></span>
             </a>
@@ -24,7 +24,6 @@
                 <a href="{{ url_for('campus_map') }}" class="nav-link {% if active=='map' %}active{% endif %}"><i class="fas fa-map"></i> Map</a>
                 <a href="{{ url_for('accessibility') }}" class="nav-link {% if active=='accessibility' %}active{% endif %}"><i class="fas fa-universal-access"></i> Accessibility</a>
                 <a href="{{ url_for('events') }}" class="nav-link {% if active=='events' %}active{% endif %}"><i class="far fa-calendar"></i> Events</a>
-                <a href="{{ url_for('about') }}" class="nav-link {% if active=='about' %}active{% endif %}"><i class="far fa-circle-question"></i> About</a>
             </nav>
         </div>
     </header>
@@ -43,7 +42,7 @@
     <footer class="site-footer">
         <div class="footer-inner">
             <span>CampusNav · Campus navigation prototype</span>
-            <span>Map, route and accessibility data are illustrative and require local verification.</span>
+            <span>Route estimates depend on OpenStreetMap data and are not accessibility-certified.</span>
         </div>
     </footer>
     {% block scripts %}{% endblock %}

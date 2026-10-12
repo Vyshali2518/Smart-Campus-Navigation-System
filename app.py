@@ -1,18 +1,12 @@
-"""
-CampusNav: demonstration campus navigation and accessibility prototype.
-
-Locations and the walking/cycling graph are illustrative sample data, not an
-officially verified campus map or audited accessibility network.
-"""
+"""CampusNav: OpenStreetMap-backed campus routing and event prototype."""
 
 from __future__ import annotations
 
 import csv
-import heapq
 import os
 from datetime import datetime
-from itertools import count
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import requests
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
@@ -24,12 +18,22 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 LOCATIONS_CSV = DATA_DIR / "locations.csv"
 EVENTS_CSV = DATA_DIR / "events.csv"
+ACCESSIBILITY_CSV = DATA_DIR / "accessibility.csv"
 EVENT_FIELDS = [
-    "id", "title", "description", "date", "start_time", "end_time",
+    "id", "title", "description", "date", "end_date", "start_time", "end_time",
     "category", "location", "organizer", "image_url", "priority",
 ]
 EVENT_TIME_FORMAT = "%Y-%m-%d %H:%M"
-SPEED_METRES_PER_MINUTE = {"walking": 80, "cycling": 250}
+VALHALLA_ROUTE_URL = os.environ.get(
+    "VALHALLA_ROUTE_URL",
+    "https://valhalla1.openstreetmap.de/route",
+)
+ROUTE_COSTING = {"walking": "pedestrian", "cycling": "bicycle", "car": "auto"}
+EVENT_CATEGORIES = {
+    "workshop", "seminar", "technical event", "cultural event",
+    "sports event", "club activity", "guest lecture", "notice", "emergency",
+    "event", "academic", "sports",
+}
 
 
 def _load_csv(path: Path) -> list[dict[str, str]]:
@@ -44,117 +48,139 @@ def _load_csv(path: Path) -> list[dict[str, str]]:
 
 LOCATIONS = _load_csv(LOCATIONS_CSV)
 LOCATIONS_BY_NAME = {location["name"]: location for location in LOCATIONS}
+ACCESSIBILITY_ROUTES = _load_csv(ACCESSIBILITY_CSV)
 
-# Each connection is an illustrative graph edge: (from, to, metres, modes,
-# step_free, stairs, ramp). All attributes require on-campus verification.
-GRAPH_EDGES = [
-    ("Main Gate (Gate 1)", "Gate 2", 145, ("walking", "cycling"), True, False, True),
-    ("Main Gate (Gate 1)", "Parking (Students Cars)", 100, ("walking", "cycling"), True, False, True),
-    ("Main Gate (Gate 1)", "Parking (Students Bikes)", 105, ("walking", "cycling"), True, False, True),
-    ("Main Gate (Gate 1)", "Parking (Teachers)", 70, ("walking", "cycling"), True, False, True),
-    ("Main Gate (Gate 1)", "LRC", 180, ("walking", "cycling"), True, False, True),
-    ("Main Gate (Gate 1)", "MPH", 160, ("walking", "cycling"), True, False, True),
-    ("Gate 2", "Innovation Hub", 95, ("walking",), True, False, True),
-    ("Gate 2", "OAT", 80, ("walking", "cycling"), True, False, True),
-    ("Gate 2", "Cafeteria", 120, ("walking", "cycling"), True, False, True),
-    ("LRC", "Computer Lab 1", 90, ("walking", "cycling"), True, False, True),
-    ("Computer Lab 1", "Computer Lab 2", 40, ("walking",), True, False, False),
-    ("Computer Lab 1", "CSE Department", 55, ("walking", "cycling"), True, False, True),
-    ("Computer Lab 2", "ECE Department", 85, ("walking", "cycling"), True, False, True),
-    ("CSE Department", "Academic Block", 75, ("walking", "cycling"), True, False, True),
-    ("ECE Department", "Academic Block", 65, ("walking", "cycling"), True, False, True),
-    ("Academic Block", "Administration Office", 110, ("walking", "cycling"), True, False, True),
-    ("Academic Block", "Seminar Hall", 90, ("walking",), True, False, False),
-    ("Seminar Hall", "Auditorium", 135, ("walking", "cycling"), True, False, True),
-    ("MPH", "Auditorium", 125, ("walking", "cycling"), True, False, True),
-    ("MPH", "Main Ground", 115, ("walking", "cycling"), True, False, True),
-    ("Main Ground", "Sports Ground", 170, ("walking",), True, False, False),
-    ("Sports Ground", "Football Ground", 230, ("walking", "cycling"), True, False, True),
-    ("LRC", "Mess", 210, ("walking", "cycling"), True, False, True),
-    ("Mess", "Cafeteria", 40, ("walking", "cycling"), True, False, True),
-    ("Cafeteria", "Main Canteen", 35, ("walking",), True, False, False),
-    ("Main Canteen", "Food Court", 60, ("walking", "cycling"), True, False, True),
-    ("Food Court", "Canteen 2", 80, ("walking", "cycling"), True, False, True),
-    ("Mess", "Hostel Dining Hall", 160, ("walking", "cycling"), True, False, True),
-    ("Hostel Dining Hall", "Boys' Hostel", 100, ("walking",), True, False, False),
-    ("Hostel Dining Hall", "Girls' Hostel", 125, ("walking", "cycling"), True, False, True),
-    ("Innovation Hub", "Medical Centre", 185, ("walking", "cycling"), True, False, True),
-    ("Innovation Hub", "Student Activity Centre", 120, ("walking",), True, False, False),
-    ("Student Activity Centre", "OAT", 75, ("walking", "cycling"), True, False, True),
-    ("Medical Centre", "Bus Stop", 140, ("walking", "cycling"), True, False, True),
-    ("Bus Stop", "Secondary Gate", 90, ("walking", "cycling"), True, False, True),
-    ("Secondary Gate", "Visitor Parking", 65, ("walking", "cycling"), True, False, True),
-    ("Visitor Parking", "Main Gate (Gate 1)", 155, ("walking", "cycling"), True, False, True),
-    ("Parking Area", "Visitor Parking", 55, ("walking", "cycling"), True, False, True),
-    ("Parking Area", "Administration Office", 185, ("walking", "cycling"), True, False, True),
-    ("Parking (Students Cars)", "Parking Area", 80, ("walking", "cycling"), True, False, True),
-    ("Parking (Students Bikes)", "MPH", 70, ("walking", "cycling"), True, False, True),
-    ("Parking (Teachers)", "MPH", 80, ("walking", "cycling"), True, False, True),
-    ("Football Ground", "Main Gate (Gate 1)", 200, ("walking", "cycling"), True, False, True),
-]
+def _decode_polyline6(encoded: str) -> list[list[float]]:
+    """Decode a Valhalla precision-6 shape into [latitude, longitude] points."""
+    coordinates = []
+    index = 0
+    latitude = longitude = 0
+    while index < len(encoded):
+        deltas = []
+        for _ in range(2):
+            result = shift = 0
+            while True:
+                if index >= len(encoded):
+                    raise ValueError("Incomplete encoded route geometry")
+                value = ord(encoded[index]) - 63
+                index += 1
+                result |= (value & 0x1F) << shift
+                shift += 5
+                if value < 0x20:
+                    break
+            deltas.append(~(result >> 1) if result & 1 else result >> 1)
+        latitude += deltas[0]
+        longitude += deltas[1]
+        coordinates.append([latitude / 1_000_000, longitude / 1_000_000])
+    return coordinates
 
 
-def _neighbors(location: str, mode: str, step_free: bool) -> list[tuple[str, int, bool]]:
-    adjacent = []
-    for start, end, distance, modes, is_step_free, _stairs, _ramp in GRAPH_EDGES:
-        if mode not in modes or (step_free and not is_step_free):
-            continue
-        if location == start:
-            adjacent.append((end, distance, is_step_free))
-        elif location == end:
-            adjacent.append((start, distance, is_step_free))
-    return adjacent
+def _normalise_trip(trip: dict, label: str) -> dict:
+    summary = trip.get("summary") or {}
+    legs = trip.get("legs") or []
+    coordinates = []
+    instructions = []
+    for leg in legs:
+        shape = leg.get("shape", "")
+        if shape:
+            points = _decode_polyline6(shape)
+            coordinates.extend(points if not coordinates else points[1:])
+        for maneuver in leg.get("maneuvers", []):
+            instruction = maneuver.get("instruction")
+            if instruction:
+                instructions.append(instruction)
+    if not coordinates or not summary:
+        raise ValueError("Routing service returned an incomplete trip")
+    return {
+        "name": label,
+        "distance_m": round(float(summary["length"]) * 1000),
+        "duration_seconds": round(float(summary["time"])),
+        "time_min": max(1, round(float(summary["time"]) / 60)),
+        "coordinates": coordinates,
+        "instructions": instructions,
+    }
 
 
-def _shortest_paths(source: str, destination: str, mode: str, step_free: bool, limit: int = 3) -> list[dict]:
-    """Uniform-cost search over simple graph paths, returning the k shortest."""
-    if source not in LOCATIONS_BY_NAME or destination not in LOCATIONS_BY_NAME:
-        return []
-    if mode not in SPEED_METRES_PER_MINUTE:
-        return []
-    queue: list[tuple[int, int, tuple[str, ...]]] = []
-    sequence = count()
-    heapq.heappush(queue, (0, next(sequence), (source,)))
-    found = []
-    while queue and len(found) < limit:
-        distance, _order, path = heapq.heappop(queue)
-        current = path[-1]
-        if current == destination:
-            found.append({
-                "path": list(path),
-                "distance_m": distance,
-                "time_min": max(1, round(distance / SPEED_METRES_PER_MINUTE[mode])),
-                "step_free": all(
-                    edge[4]
-                    for first, second in zip(path, path[1:])
-                    for edge in GRAPH_EDGES
-                    if {edge[0], edge[1]} == {first, second}
-                ),
-            })
-            continue
-        for neighbor, edge_distance, _is_step_free in _neighbors(current, mode, step_free):
-            if neighbor not in path:
-                heapq.heappush(
-                    queue,
-                    (distance + edge_distance, next(sequence), path + (neighbor,)),
-                )
-    return found
+def _request_real_routes(source: str, destination: str, mode: str) -> list[dict]:
+    """Get real OSM-network routes from Valhalla; never fall back to a sketch."""
+    source_location = LOCATIONS_BY_NAME[source]
+    destination_location = LOCATIONS_BY_NAME[destination]
+    payload = {
+        "locations": [
+            {
+                "lat": float(source_location["latitude"]),
+                "lon": float(source_location["longitude"]),
+                "type": "break",
+            },
+            {
+                "lat": float(destination_location["latitude"]),
+                "lon": float(destination_location["longitude"]),
+                "type": "break",
+            },
+        ],
+        "costing": ROUTE_COSTING[mode],
+        "alternates": 2,
+        "units": "kilometers",
+        "directions_options": {"units": "kilometers"},
+    }
+    response = requests.post(VALHALLA_ROUTE_URL, json=payload, timeout=15)
+    response.raise_for_status()
+    data = response.json()
+    if data.get("error"):
+        raise ValueError(data["error"])
+    trips = [data.get("trip", {})]
+    trips.extend(
+        alternative["trip"]
+        for alternative in data.get("alternates", [])
+        if isinstance(alternative, dict) and isinstance(alternative.get("trip"), dict)
+    )
+    routes = []
+    for index, trip in enumerate(trips):
+        if trip:
+            routes.append(_normalise_trip(trip, "Fastest route" if index == 0 else f"Alternative {index}"))
+    if not routes:
+        raise ValueError("No real route is available for this mode and location pair.")
+    return routes
 
 
 def _location_categories() -> list[str]:
     return sorted({location.get("category", "other") for location in LOCATIONS})
 
 
+def _event_status(event: dict[str, str], now: datetime) -> str:
+    event_date = event.get("date", "")
+    if not event_date:
+        return "Date needs review"
+    end_date = event.get("end_date") or event_date
+    start_time = event.get("start_time") or "00:00"
+    end_time = event.get("end_time") or "23:59"
+    try:
+        start = datetime.strptime(f"{event_date} {start_time}", EVENT_TIME_FORMAT)
+        end = datetime.strptime(f"{end_date} {end_time}", EVENT_TIME_FORMAT)
+    except ValueError:
+        return "Date needs review"
+    if end < start:
+        return "Date/time mismatch"
+    if end < now:
+        return "Over"
+    if start <= now <= end:
+        return "In progress"
+    return "Upcoming"
+
+
 def _normalise_event(event: dict[str, str]) -> dict[str, str]:
     item = dict(event)
     start = item.get("start_time", "")
     end = item.get("end_time", "")
-    if not item.get("date") and start:
-        item["date"] = start[:10]
     if " " in start:
-        item["start_time"] = start.split(" ", 1)[1]
+        start_date, item["start_time"] = start.split(" ", 1)
+        item["date"] = item.get("date") or start_date
+    elif not item.get("date") and len(start) >= 10:
+        item["date"] = start[:10]
     if " " in end:
-        item["end_time"] = end.split(" ", 1)[1]
+        end_date, item["end_time"] = end.split(" ", 1)
+        item["end_date"] = item.get("end_date") or end_date
+    item["end_date"] = item.get("end_date") or item.get("date", "")
     for field, default in (
         ("description", ""), ("organizer", ""), ("image_url", ""),
         ("priority", "medium"), ("category", "event"), ("location", ""),
@@ -179,6 +205,7 @@ def _save_events(events: list[dict[str, str]]) -> None:
 def _parse_event_form(form) -> tuple[dict[str, str] | None, str | None]:
     title = form.get("title", "").strip()
     event_date = form.get("date", "").strip()
+    end_date = form.get("end_date", "").strip() or event_date
     start_time = form.get("start_time", "").strip()
     end_time = form.get("end_time", "").strip()
     location = form.get("location", "").strip()
@@ -186,63 +213,59 @@ def _parse_event_form(form) -> tuple[dict[str, str] | None, str | None]:
         return None, "Title, date, and location are required."
     try:
         datetime.strptime(event_date, "%Y-%m-%d")
+        datetime.strptime(end_date, "%Y-%m-%d")
         if start_time:
             datetime.strptime(start_time, "%H:%M")
         if end_time:
             datetime.strptime(end_time, "%H:%M")
     except ValueError:
         return None, "Enter a valid date and time."
-    if start_time and end_time and end_time < start_time:
-        return None, "End time must not be before start time."
+    start = datetime.strptime(f"{event_date} {start_time or '00:00'}", EVENT_TIME_FORMAT)
+    end = datetime.strptime(f"{end_date} {end_time or '23:59'}", EVENT_TIME_FORMAT)
+    if end < start:
+        return None, "End date and time must not be before the start date and time."
+    category = form.get("category", "workshop").strip().lower() or "workshop"
+    if category not in EVENT_CATEGORIES:
+        return None, "Choose a category from the list."
+    image_url = form.get("image_url", "").strip()
+    if image_url and urlsplit(image_url).scheme not in {"http", "https"}:
+        return None, "Image URL must use http or https."
     return {
         "title": title[:100],
         "description": form.get("description", "").strip()[:1000],
         "date": event_date,
+        "end_date": end_date,
         "start_time": start_time,
         "end_time": end_time,
-        "category": form.get("category", "workshop").strip() or "workshop",
+        "category": category,
         "location": location[:120],
         "organizer": form.get("organizer", "").strip()[:120],
-        "image_url": form.get("image_url", "").strip()[:500],
+        "image_url": image_url[:500],
         "priority": form.get("priority", "medium").strip() or "medium",
     }, None
 
 
 @app.route("/")
 def index():
-    return redirect(url_for("campus_map"))
-
-
-@app.route("/welcome")
-def welcome():
-    return redirect(url_for("about"))
-
-
-@app.route("/about")
-def about():
-    return render_template("about.html", active="about")
+    return redirect(url_for("home"))
 
 
 @app.route("/home")
 def home():
-    return render_template(
-        "home.html",
-        active="navigate",
-        locations=LOCATIONS,
-        selected_source=request.args.get("source", ""),
-        selected_destination=request.args.get("destination", ""),
-        selected_mode=request.args.get("mode", "walking"),
-        step_free=request.args.get("step_free") == "1",
-    )
+    return render_template("home.html", active="navigate")
 
 
 @app.route("/map")
 def campus_map():
+    requested_mode = request.args.get("mode", "walking")
     return render_template(
         "campus_map.html",
         active="map",
         locations=LOCATIONS,
         categories=_location_categories(),
+        selected_source=request.args.get("source", "") if request.args.get("source", "") in LOCATIONS_BY_NAME else "",
+        selected_destination=request.args.get("destination", "") if request.args.get("destination", "") in LOCATIONS_BY_NAME else "",
+        selected_mode=requested_mode if requested_mode in ROUTE_COSTING else "walking",
     )
 
 
@@ -250,37 +273,13 @@ def campus_map():
 def result():
     source = request.form.get("source", "").strip()
     destination = request.form.get("destination", "").strip()
-    mode = request.form.get("mode", "walking").strip().lower()
-    step_free = request.form.get("step_free") == "on"
-    src = LOCATIONS_BY_NAME.get(source)
-    dst = LOCATIONS_BY_NAME.get(destination)
-
-    if not src or not dst:
-        flash("Choose a starting point and destination from the location list.", "error")
-        return redirect(url_for("home"))
-    if source == destination:
-        flash("Starting point and destination must be different.", "error")
-        return redirect(url_for("home", source=source, destination=destination))
-
-    routes = _shortest_paths(source, destination, mode, step_free)
-    if mode == "car":
-        message = "Car routes are unavailable: this prototype has no verified vehicle-road network."
-    elif not routes:
-        message = "No connected route is available for these locations and preferences."
-    else:
-        message = None
-    return render_template(
-        "result.html",
-        active="navigate",
-        source=source,
-        destination=destination,
-        src=src,
-        dst=dst,
-        locations=LOCATIONS,
-        mode=mode,
-        step_free=step_free,
-        routes=routes,
-        message=message,
+    return redirect(
+        url_for(
+            "campus_map",
+            source=source,
+            destination=destination,
+            mode=request.form.get("mode", "walking"),
+        ) + "#route-planner"
     )
 
 
@@ -289,17 +288,19 @@ def accessibility():
     return render_template(
         "accessibility.html",
         active="accessibility",
-        locations=LOCATIONS,
-        routes=GRAPH_EDGES,
+        accessibility_routes=ACCESSIBILITY_ROUTES,
     )
 
 
 @app.route("/events")
 def events():
+    now = datetime.now()
     all_events = sorted(
         _all_events(),
         key=lambda event: (event.get("date", ""), event.get("start_time", ""), event["title"].lower()),
     )
+    for event in all_events:
+        event["status"] = _event_status(event, now)
     query = request.args.get("q", "").strip().lower()
     category = request.args.get("category", "").strip().lower()
     event_date = request.args.get("date", "").strip()
@@ -322,8 +323,8 @@ def events():
 @app.route("/events/add", methods=["POST"])
 def events_add():
     event, error = _parse_event_form(request.form)
-    if error:
-        flash(error, "error")
+    if error or event is None:
+        flash(error or "Event could not be saved.", "error")
         return redirect(url_for("events"))
     all_events = _all_events()
     try:
@@ -346,13 +347,16 @@ def events_edit(event_id: str):
         return redirect(url_for("events"))
     if request.method == "POST":
         updated, error = _parse_event_form(request.form)
-        if error:
-            flash(error, "error")
+        if error or updated is None:
+            flash(error or "Event could not be saved.", "error")
             return redirect(url_for("events_edit", event_id=event_id))
         updated["id"] = event_id
         _save_events([updated if item.get("id") == event_id else item for item in all_events])
         flash("Event changes saved.", "success")
         return redirect(url_for("events"))
+    for item in all_events:
+        item["status"] = _event_status(item, datetime.now())
+    event["status"] = _event_status(event, datetime.now())
     return render_template(
         "events.html",
         active="events",
@@ -390,44 +394,23 @@ def api_routes():
         return jsonify({"error": "source and destination are required"}), 400
     if source not in LOCATIONS_BY_NAME or destination not in LOCATIONS_BY_NAME:
         return jsonify({"error": "unknown location"}), 400
-    if mode == "car":
-        return jsonify({"error": "Car routing is unavailable without a verified road network."}), 422
-    if mode not in SPEED_METRES_PER_MINUTE:
+    if mode not in ROUTE_COSTING:
         return jsonify({"error": "mode must be walking, cycling, or car"}), 400
-    return jsonify({
-        "routes": _shortest_paths(source, destination, mode, bool(data.get("step_free")))
-    })
-
-
-@app.route("/api/directions", methods=["POST"])
-def api_directions():
-    """Proxy optional walking directions from the public OSRM service."""
-    data = request.get_json(silent=True) or {}
-    origin = data.get("origin")
-    destination = data.get("destination")
+    if source == destination:
+        return jsonify({"error": "Choose different starting and destination locations."}), 400
     try:
-        coordinates = [
-            (float(origin["lat"]), float(origin["lng"])),
-            (float(destination["lat"]), float(destination["lng"])),
-        ]
-    except (TypeError, KeyError, ValueError):
-        return jsonify({"error": "valid origin and destination coordinates are required"}), 400
-    if any(not (-90 <= lat <= 90 and -180 <= lng <= 180) for lat, lng in coordinates):
-        return jsonify({"error": "coordinates are out of range"}), 400
-    osrm_url = (
-        "https://router.project-osrm.org/route/v1/foot/"
-        f"{coordinates[0][1]},{coordinates[0][0]};{coordinates[1][1]},{coordinates[1][0]}"
-        "?overview=full&geometries=geojson&steps=true"
-    )
-    try:
-        response = requests.get(osrm_url, timeout=8)
-        response.raise_for_status()
-        return jsonify(response.json())
+        routes = _request_real_routes(source, destination, mode)
+        return jsonify({
+            "routes": routes,
+            "mode": mode,
+            "provider": "OpenStreetMap via Valhalla",
+        })
     except requests.RequestException as exc:
-        app.logger.warning("OSRM directions request failed: %s", exc)
-        return jsonify({"error": "Walking directions service is temporarily unavailable."}), 502
-    except ValueError:
-        return jsonify({"error": "Walking directions service returned invalid data."}), 502
+        app.logger.warning("Valhalla route request failed for %s -> %s (%s): %s", source, destination, mode, exc)
+        return jsonify({"error": "The real routing service is temporarily unavailable. Please try again."}), 502
+    except (KeyError, TypeError, ValueError) as exc:
+        app.logger.warning("Valhalla returned an unusable route for %s -> %s: %s", source, destination, exc)
+        return jsonify({"error": str(exc)}), 422
 
 
 @app.errorhandler(404)

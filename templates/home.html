@@ -1,78 +1,53 @@
 {% extends "_base.html" %}
-{% block title %}Plan a route | CampusNav{% endblock %}
+{% block title %}Navigate | CampusNav{% endblock %}
 
 {% block content %}
 <section class="fade">
-    <p class="eyebrow">Campus wayfinding</p>
-    <h1 class="section-title">Plan your route</h1>
-    <p class="section-sub">Choose a start, destination and travel mode. Routes are calculated from the connected sample campus graph.</p>
+    <section class="card" style="margin-bottom:1.4rem;background:linear-gradient(135deg,#fff 50%,#eef4ff)">
+        <p class="eyebrow">Your campus, easier to explore</p>
+        <h1 class="section-title">Welcome to CampusNav</h1>
+        <p class="section-sub" style="margin-bottom:1rem">Find campus locations, explore the map, and learn how to plan a trip. This guide walks you through the main parts of the website.</p>
+        <div class="button-row">
+            <a class="button-link" href="{{ url_for('campus_map') }}#route-planner"><i class="fas fa-map-location-dot"></i> Start with the Map</a>
+            <a class="button-link secondary" href="{{ url_for('events') }}"><i class="far fa-calendar"></i> Browse Events</a>
+        </div>
+    </div>
 
-    <form method="POST" action="{{ url_for('result') }}" class="card" id="route-form" style="max-width:820px">
-        <div class="form-grid">
-            <div class="form-group">
-                <label for="source">Starting location</label>
-                <select name="source" id="source" class="form-control" required>
-                    <option value="">Choose a location</option>
-                    {% for loc in locations %}
-                    <option value="{{ loc.name }}" {% if selected_source == loc.name %}selected{% endif %}>{{ loc.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="destination">Destination</label>
-                <select name="destination" id="destination" class="form-control" required>
-                    <option value="">Choose a location</option>
-                    {% for loc in locations %}
-                    <option value="{{ loc.name }}" {% if selected_destination == loc.name %}selected{% endif %}>{{ loc.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="mode">Travel mode</label>
-                <select name="mode" id="mode" class="form-control">
-                    <option value="walking" {% if selected_mode == 'walking' %}selected{% endif %}>Walking · estimate 80 m/min</option>
-                    <option value="cycling" {% if selected_mode == 'cycling' %}selected{% endif %}>Cycling · estimate 250 m/min</option>
-                    <option value="car" {% if selected_mode == 'car' %}selected{% endif %}>Car · currently unsupported</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Route preference</label>
-                <label class="checkbox-row" for="step_free">
-                    <input type="checkbox" id="step_free" name="step_free" {% if step_free %}checked{% endif %}>
-                    Prefer graph edges marked step-free
-                </label>
-                <p class="hint">Accessibility attributes are illustrative and not verified on-site.</p>
-            </div>
-            <div class="form-group wide button-row">
-                <button type="button" class="btn secondary" id="swap-locations" aria-label="Swap start and destination"><i class="fas fa-right-left"></i> Swap</button>
-                <button type="reset" class="btn secondary" id="clear-route"><i class="fas fa-xmark"></i> Clear</button>
-                <button type="submit" class="btn"><i class="fas fa-route"></i> Find routes</button>
-            </div>
-        </div>
-        <div class="callout warning" style="margin-top:1rem">
-            Sample locations, route distances and travel estimates are for demonstration only. Car routes are intentionally unavailable because no verified vehicle network is included.
-        </div>
-    </form>
-    <p class="hint" style="margin-top:1rem">Need location details? <a href="{{ url_for('campus_map') }}">Explore the interactive map</a>.</p>
+    <h2 class="page-heading">How to use CampusNav</h2>
+    <p class="section-sub">You can move between pages with the navigation bar at the top. Start here for a quick tour.</p>
+    <div class="grid cols-2" style="margin-bottom:1.4rem">
+        <article class="card">
+            <p class="eyebrow">01 · Find a place</p>
+            <h3 style="margin:.1rem 0 .5rem">Explore the Map</h3>
+            <p>Open <a href="{{ url_for('campus_map') }}">Map</a> to see campus locations. Use the search box or category filter to find a place, then select <strong>Show</strong> to focus the map or open its marker for more details.</p>
+        </article>
+        <article class="card">
+            <p class="eyebrow">02 · Plan a trip</p>
+            <h3 style="margin:.1rem 0 .5rem">Choose your route</h3>
+            <p>On the Map page, choose a starting location, a destination, and walking, cycling, or car. Select <strong>Find real routes</strong> to request routes based on OpenStreetMap data.</p>
+        </article>
+        <article class="card">
+            <p class="eyebrow">03 · Compare results</p>
+            <h3 style="margin:.1rem 0 .5rem">Read the route details</h3>
+            <p>Each result shows its mapped line, distance, and estimated travel time. Select a result to highlight it on the map, and expand <strong>Turn-by-turn directions</strong> for its instructions. Alternatives appear only when the routing service provides them.</p>
+        </article>
+        <article class="card">
+            <p class="eyebrow">04 · Check campus updates</p>
+            <h3 style="margin:.1rem 0 .5rem">Browse Events</h3>
+            <p>Open <a href="{{ url_for('events') }}">Events</a> to search or filter listings. You can add, edit, or delete demonstration events. Their status updates automatically to <strong>Over</strong> after the end date and time.</p>
+        </article>
+    </div>
+    <div class="grid cols-2">
+        <article class="card">
+            <h2 style="margin-top:0;font-size:1.1rem">Accessibility and route data</h2>
+            <p>Routes are supplied by OpenStreetMap via Valhalla and depend on location coordinates and available map data. They are not audited for step-free access or guaranteed to reflect current conditions.</p>
+            <a href="{{ url_for('accessibility') }}">Read the accessibility information</a>
+        </article>
+        <article class="card">
+            <h2 style="margin-top:0;font-size:1.1rem">Before you travel</h2>
+            <p>Location and event entries are demonstration data. Routes depend on OpenStreetMap coverage and do not guarantee accessibility or current conditions. Confirm important information with an official campus source.</p>
+            <a class="button-link small" href="{{ url_for('campus_map') }}#route-planner">Open the Map route planner</a>
+        </article>
+    </div>
 </section>
-{% endblock %}
-
-{% block scripts %}
-<script>
-(() => {
-    const source = document.getElementById("source");
-    const destination = document.getElementById("destination");
-    document.getElementById("swap-locations").addEventListener("click", () => {
-        [source.value, destination.value] = [destination.value, source.value];
-    });
-    document.getElementById("clear-route").addEventListener("click", () => {
-        window.setTimeout(() => {
-            source.value = "";
-            destination.value = "";
-            document.getElementById("mode").value = "walking";
-            document.getElementById("step_free").checked = false;
-        }, 0);
-    });
-})();
-</script>
 {% endblock %}

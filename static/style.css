@@ -155,6 +155,9 @@ textarea.form-control { min-height: 96px; resize: vertical; }
 .tag.high { background: #fff1f0; color: #a32018; }
 .tag.medium { background: #eff6ff; color: #1d4ed8; }
 .tag.low { background: #f1f5f9; color: #64748b; }
+.tag.over { background: #f1f5f9; color: #64748b; }
+.tag.in-progress { background: #e8f6ef; color: #176b46; }
+.tag.review { background: #fff5e7; color: #92500b; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: .7rem; text-align: left; border-bottom: 1px solid var(--line); }
 th { color: #475569; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
